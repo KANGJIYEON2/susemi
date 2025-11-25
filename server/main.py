@@ -1,7 +1,14 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import user_input, pdf_parse, manual_input, analyze
+
+
 
 app = FastAPI(
     title="Susemi Backend",

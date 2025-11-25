@@ -1,0 +1,39 @@
+#  환경 변수
+.env
+.env.*
+
+#  파이썬 캐시
+__pycache__/
+*.py[cod]
+*.pyo
+
+#  패키지 빌드
+build/
+dist/
+*.egg-info/
+
+#  테스트 & 분석 도구
+.pytest_cache/
+.coverage
+.mypy_cache/
+.ipynb_checkpoints/
+
+#  가상환경
+venv/
+.venv/
+ENV/
+env/
+__pypackages__/
+
+#  IDE 설정
+.vscode/
+.idea/
+
+#  로그/DB
+*.log
+*.sqlite3
+*.db
+
+#  OS 자동파일
+.DS_Store
+Thumbs.db
