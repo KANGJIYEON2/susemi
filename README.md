@@ -92,18 +92,18 @@ PDF Binary
 
 # 🔧 시스템 아키텍처
 
-Next.js 16 (Frontend)
-├─ Wizard Forms
-├─ 누락 항목 표시
-├─ WHY 리포트 UI
-└─ TypeScript
+Frontend (Next.js 16)
+→ Wizard Forms
+→ 누락 항목 표시
+→ WHY 리포트 UI
+→ TypeScript
 │
-▼ JSON
-FastAPI (Backend)
-├─ PDF Parsing (PyMuPDF) + GPT Hybrid
-├─ 세법 Rule Engine
-├─ GPT WHY Reasoning
-└─ Pydantic Validation
+▼
+Backend (FastAPI)
+→ PyMuPDF PDF Parsing + GPT Hybrid
+→ 세법 Rule Engine
+→ WHY Reasoning
+→ Pydantic Validation
 │
 ▼
 OpenAI GPT (Why Analysis)
