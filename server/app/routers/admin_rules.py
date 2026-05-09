@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.schemas.rule_draft_schema import (
     CompileRequest,
@@ -25,13 +25,15 @@ from app.schemas.rule_draft_schema import (
     DraftsListResponse,
     RuleDraft,
 )
+from app.security import require_admin_token
 from app.services import rule_drafts_store
 from app.services.legal_api import LegalAPIClient, LegalAPIError
 from app.services.rule_compiler import compile_rule
 from app.services.rule_drafts_store import UnsafeIdError
 
 
-router = APIRouter()
+# 라우터 전체에 admin 토큰 가드 적용
+router = APIRouter(dependencies=[Depends(require_admin_token)])
 
 
 async def _fetch_law_text(req: CompileRequest) -> tuple[str, str | None, str | None]:

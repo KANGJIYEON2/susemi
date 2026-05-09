@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.schemas.rag_schema import (
     IndexLawRequest,
@@ -21,11 +21,13 @@ from app.schemas.rag_schema import (
     SearchRequest,
     SearchResponse,
 )
+from app.security import require_admin_token
 from app.services import rag
 from app.services.legal_api import LegalAPIClient, LegalAPIError
 
 
-router = APIRouter()
+# RAG 는 OpenAI 호출 비용/데이터 노출 우려 → admin 전용
+router = APIRouter(dependencies=[Depends(require_admin_token)])
 
 
 @router.post("/rag/index", response_model=IndexLawResponse)

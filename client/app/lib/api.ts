@@ -1,3 +1,4 @@
+import { getAdminToken } from "./admin-token";
 import type {
   AnalyzeRequest,
   AnalyzeResponse,
@@ -9,6 +10,14 @@ import type {
   VerificationReport,
   VerifyRequest,
 } from "./types";
+
+/** /admin/* 와 /rag/* 호출 시 자동으로 X-Admin-Token 헤더 부착 + 401/403/503 통과 */
+export class AdminAuthError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = "AdminAuthError";
+  }
+}
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1"; // 배포주소와 현재주소 모두 핸들링
@@ -269,9 +278,18 @@ async function adminFetch<T>(
   path: string,
   init?: RequestInit
 ): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, init);
+  const token = getAdminToken();
+  const headers = new Headers(init?.headers);
+  if (token) headers.set("X-Admin-Token", token);
+  if (init?.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (!res.ok) {
     const text = await res.text();
+    if (res.status === 401 || res.status === 403 || res.status === 503) {
+      throw new AdminAuthError(res.status, text);
+    }
     throw new Error(`${path} ${res.status}: ${text}`);
   }
   return res.json() as Promise<T>;

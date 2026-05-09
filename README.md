@@ -169,7 +169,7 @@ flowchart TB
         LAW[open.law.go.kr]
     end
 
-    subgraph D[(디스크 캐시)]
+    subgraph D[디스크 캐시]
         RJ[(rules/2025.json)]
         TJ[(tax_tables/2025.json)]
         LC[(legal_cache/)]
