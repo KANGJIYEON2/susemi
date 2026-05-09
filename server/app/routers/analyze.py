@@ -1,9 +1,11 @@
 from fastapi import APIRouter
 
 from app.schemas.analysis_schema import AnalyzeRequest, AnalyzeResponse, Section
+from app.schemas.rag_schema import SearchHit
 from app.schemas.rule_schema import RuleEvaluation
+from app.services import rag
 from app.services.llm_client import generate_analysis
-from app.services.rules_engine import build_rule_context
+from app.services.rules_engine import RuleContext, build_rule_context
 
 router = APIRouter()
 
@@ -17,6 +19,10 @@ SECTION_TO_RULE_IDS: dict[str, list[str]] = {
     "donation": [],
     "other": [],
 }
+
+
+# RAG 컨텍스트 fetch 시 검색에 쓸 top-K
+RAG_TOP_K = 5
 
 
 def _attach_provenance(
@@ -33,13 +39,46 @@ def _attach_provenance(
     return out
 
 
+def _build_rag_query(rule_context: RuleContext) -> str | None:
+    """평가된 룰들의 제목·anchor 를 합쳐 RAG 검색 query 로 사용."""
+    if not rule_context.evaluations:
+        return None
+    parts: list[str] = []
+    for ev in rule_context.evaluations:
+        parts.append(ev.title)
+        if ev.legal_anchor:
+            parts.append(ev.legal_anchor)
+    query = " ".join(parts).strip()
+    return query or None
+
+
+async def _fetch_rag_context(
+    rule_context: RuleContext,
+    top_k: int = RAG_TOP_K,
+) -> list[SearchHit]:
+    """
+    RAG top-K 법령 청크 fetch. 실패 시 빈 리스트 반환 (분석 흐름 유지).
+    인덱스가 비었거나 OPENAI_API_KEY 없으면 자연스럽게 [] 반환.
+    """
+    query = _build_rag_query(rule_context)
+    if query is None:
+        return []
+    try:
+        hits, _ = await rag.search(query, top_k=top_k)
+        return hits
+    except Exception:
+        # RAG 실패는 분석 자체를 막지 않음 — silent fallback
+        return []
+
+
 @router.post("/analyze", response_model=AnalyzeResponse)
 async def analyze_tax(data: AnalyzeRequest):
     """
     PAGE 7: 전체 데이터 기반 Why 분석.
     1) 규칙엔진: JSON 룰 평가 → RuleEvaluation 리스트 (각각 legal_anchor 포함)
-    2) LLM: 항목별 Why 해설 (detail 안에 [rule_id] 마커 인용)
-    3) 백엔드 후처리: 섹션마다 관련 평가 결과를 provenance 로 부착
+    2) RAG: 평가된 룰의 제목/anchor 로 법령 본문 top-K fetch (실패시 silent skip)
+    3) LLM: 항목별 Why 해설 (detail 안에 [rule_id] 마커 인용 + RAG 본문 참고)
+    4) 백엔드 후처리: 섹션마다 관련 평가 결과를 provenance 로 부착
     """
 
     rule_context = build_rule_context(
@@ -50,6 +89,8 @@ async def analyze_tax(data: AnalyzeRequest):
         manual_input=data.manual_input,
     )
 
+    rag_hits = await _fetch_rag_context(rule_context)
+
     summary, sections, tax_tips = await generate_analysis(
         income=data.income,
         dependents=data.dependents,
@@ -57,6 +98,7 @@ async def analyze_tax(data: AnalyzeRequest):
         parsed_pdf=data.parsed_pdf,
         manual_input=data.manual_input,
         rule_context=rule_context,
+        rag_hits=rag_hits,
     )
 
     # Provenance 부착 — LLM 결과는 변경하지 않고 새 Section 객체로 복제

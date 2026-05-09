@@ -8,6 +8,7 @@ from app.schemas.user_input_schema import Income, Dependents, Conditions
 from app.schemas.pdf_schema import ParsedPdfData
 from app.schemas.manual_input_schema import ManualInputRequest
 from app.schemas.analysis_schema import Summary, Section
+from app.schemas.rag_schema import SearchHit
 from app.services.rules_engine import RuleContext
 
 # OpenAI 클라이언트는 lazy init — 테스트 환경에서 모듈 로드 시점 OPENAI_API_KEY 미설정 회피.
@@ -96,6 +97,21 @@ def _format_rules_for_prompt(rule_context: RuleContext) -> str:
     return "\n".join(lines)
 
 
+def _format_rag_for_prompt(rag_hits: List[SearchHit]) -> str:
+    """RAG top-K 법령 청크를 LLM 컨텍스트 블록으로 직렬화."""
+    if not rag_hits:
+        return "(인덱싱된 법령 없음 — admin 에서 /rag/index 후 다시 시도하세요)"
+    lines: List[str] = []
+    for i, hit in enumerate(rag_hits, start=1):
+        c = hit.chunk
+        # 본문이 너무 길면 자름 (LLM 토큰 보호)
+        text = c.text.strip().replace("\n", " ")
+        if len(text) > 280:
+            text = text[:280] + "…"
+        lines.append(f"[{i}] {c.law_name} §{c.article_no}{c.paragraph_no or ''} — {text}")
+    return "\n".join(lines)
+
+
 def build_prompt(
     income: Income,
     dependents: Dependents,
@@ -103,9 +119,11 @@ def build_prompt(
     parsed_pdf: ParsedPdfData,
     manual_input: ManualInputRequest,
     rule_context: RuleContext,
+    rag_hits: List[SearchHit] | None = None,
 ) -> str:
 
     rules_block = _format_rules_for_prompt(rule_context)
+    rag_block = _format_rag_for_prompt(rag_hits or [])
 
     return f"""
 당신은 2025년 한국 근로소득 연말정산 전문가입니다.
@@ -140,9 +158,9 @@ def build_prompt(
 --- 사용자 데이터 ---
 
 【소득 정보】
-총급여: {income.total_salary:,}원
-비과세: {income.non_taxable:,}원
-상여금: {income.bonus:,}원
+총급여: {fmt_money(income.total_salary)}
+비과세: {fmt_money(income.non_taxable)}
+상여금: {fmt_money(income.bonus)}
 
 【인적공제】
 배우자: {dependents.has_spouse}
@@ -162,23 +180,26 @@ def build_prompt(
 중소기업 재직: {conditions.mid_small_company_worker}
 
 【PDF 파싱】
-신용카드: {parsed_pdf.credit_card:,}원
-체크카드: {parsed_pdf.debit_card:,}원
-현금영수증: {parsed_pdf.cash_receipt:,}원
-의료비: {parsed_pdf.medical_expense:,}원
-기부금: {parsed_pdf.donation_total:,}원
-PDF 월세: {parsed_pdf.rent_in_pdf:,}원
+신용카드: {fmt_money(parsed_pdf.credit_card)}
+체크카드: {fmt_money(parsed_pdf.debit_card)}
+현금영수증: {fmt_money(parsed_pdf.cash_receipt)}
+의료비: {fmt_money(parsed_pdf.medical_expense)}
+기부금: {fmt_money(parsed_pdf.donation_total)}
+PDF 월세: {fmt_money(parsed_pdf.rent_in_pdf)}
 간편 공제 타입: {parsed_pdf.tax_credit_type}
 
 【수기 입력】
-추가 기부금: {manual_input.donation_extra:,}원
+추가 기부금: {fmt_money(manual_input.donation_extra)}
 수기 월세: {manual_input.rent}
 가족 의료비: {manual_input.family_medical_expenses}
-안경/콘택트렌즈: {manual_input.glasses_contacts_expense:,}원
-산후조리원: {manual_input.childbirth_care_expense:,}원
+안경/콘택트렌즈: {fmt_money(manual_input.glasses_contacts_expense)}
+산후조리원: {fmt_money(manual_input.childbirth_care_expense)}
 
 【규칙엔진 평가 결과 — 반드시 이것만 사용】
 {rules_block}
+
+【참고 법령 본문 (RAG 검색 결과) — 인용 가능, 임의 법령 추가 금지】
+{rag_block}
 
 ---
 
@@ -242,10 +263,17 @@ async def generate_analysis(
     parsed_pdf: ParsedPdfData,
     manual_input: ManualInputRequest,
     rule_context: RuleContext,
+    rag_hits: List[SearchHit] | None = None,
 ) -> Tuple[Summary, List[Section], List[str]]:
 
     prompt = build_prompt(
-        income, dependents, conditions, parsed_pdf, manual_input, rule_context
+        income,
+        dependents,
+        conditions,
+        parsed_pdf,
+        manual_input,
+        rule_context,
+        rag_hits=rag_hits,
     )
 
     response = await _get_client().chat.completions.create(

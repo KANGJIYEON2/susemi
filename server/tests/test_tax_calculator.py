@@ -324,6 +324,198 @@ def test_golden_with_extra_deductions():
 
 
 # ============================================================
+# 골든셋 v2 — 추가 5케이스 (다양한 구간 + 인적공제 조합)
+#   ※ 현재 expected 는 본 모듈의 산식을 손계산한 값.
+#     국세청 모의계산기로 검증되면 메모 추가하고 실값과 매칭 확인.
+# ============================================================
+
+
+def test_golden_high_income_180M_family_38pct_bracket():
+    """
+    총급여 180,000,000 / 배우자 + 자녀 2 / 표준세액공제 / 기납부 30M
+    소득세법 38% 구간 (1.5억~3억) 진입 케이스.
+
+    근로소득공제 (1억 초과 2%, 한도 2000만):
+      = 1,475만 + (180M-100M)×2% = 1,475만 + 160만 = 1,635만 = 16,350,000
+    근로소득금액 = 180M - 1,635만 = 163,650,000
+    인적공제 = 본인 150 + 배우자 150 + 부양가족 150×2 = 600만 = 6,000,000
+    과표 = 163,650,000 - 6,000,000 = 157,650,000
+    산출세액 (1.5억~3억 38%):
+      = 37,060,000 + (157,650,000 - 150,000,000) × 38%
+      = 37,060,000 + 7,650,000 × 0.38
+      = 37,060,000 + 2,907,000
+      = 39,967,000
+    근로세액공제 raw = 71.5만 + (3,996.7만 - 130만)×30% = 12,310,100… (계산 무관 — 한도 cap 적용)
+      한도(180M > 1.2억, 4번째 구간): 500,000 - (180M-120M)×0.005 = 200,000
+      → 200,000 (min 200,000 도 함께)
+    표준세액공제 = 130,000
+    결정세액 = 39,967,000 - 200,000 - 130,000 = 39,637,000
+    지방 = 3,963,700
+    총 부담 = 43,600,700
+    환급(prepaid 30M) = 30,000,000 - 43,600,700 = -13,600,700 (추징)
+    """
+    inputs = CalcInputs(
+        gross_salary=180_000_000,
+        dependents=DependentsInput(spouse=True, dependents_count=2),
+        prepaid_tax=30_000_000,
+    )
+    r = calculate(inputs)
+    assert r.earned_income_deduction == 16_350_000
+    assert r.earned_income_amount == 163_650_000
+    assert r.personal_deduction == 6_000_000
+    assert r.taxable_income == 157_650_000
+    assert r.calculated_tax == 39_967_000
+    assert r.earned_income_tax_credit == 200_000
+    assert r.determined_tax == 39_637_000
+    assert r.local_income_tax == 3_963_700
+    assert r.refund_or_owed == -13_600_700
+
+
+def test_golden_single_parent_with_child():
+    """
+    총급여 35M / 단독 + 자녀 1 + 한부모 / 기납부 1.2M
+
+    근로소득공제 (1500~4500 15%):
+      = 750만 + (35M-15M)×15% = 1,050만 = 10,500,000
+    근로소득금액 = 35M - 1,050만 = 24,500,000
+    인적공제 = 본인 150 + 부양가족 150 + 한부모 100 = 400만 = 4,000,000
+      ※ 부녀자 미적용 (한부모 우선 — 단, single_parent=True 시 female 자동 무효)
+    과표 = 24.5M - 400만 = 20,500,000
+    산출세액 (1400~5000 15%):
+      = 840,000 + (20,500,000 - 14,000,000)×15% = 840,000 + 975,000 = 1,815,000
+    근로세액공제 raw = 71.5만 + (181.5만 - 130만)×30% = 869,500
+      한도 (35M = 33M~70M 구간): 740,000 - (35M-33M)×0.008 = 724,000 → min 660,000 OK → 724,000
+      raw 869,500 > cap 724,000 → 724,000
+    표준세액공제 = 130,000
+    결정세액 = 1,815,000 - 724,000 - 130,000 = 961,000
+    지방 = 96,100
+    총 = 1,057,100
+    환급(prepaid 1.2M) = 1,200,000 - 1,057,100 = 142,900
+    """
+    inputs = CalcInputs(
+        gross_salary=35_000_000,
+        dependents=DependentsInput(
+            spouse=False, dependents_count=1, single_parent=True
+        ),
+        prepaid_tax=1_200_000,
+    )
+    r = calculate(inputs)
+    assert r.earned_income_deduction == 10_500_000
+    assert r.personal_deduction == 4_000_000
+    assert r.taxable_income == 20_500_000
+    assert r.calculated_tax == 1_815_000
+    assert r.earned_income_tax_credit == 724_000
+    assert r.determined_tax == 961_000
+    assert r.refund_or_owed == 142_900
+
+
+def test_golden_disabled_family():
+    """
+    총급여 60M / 배우자 + 부양가족 1 + 장애인 1 / 기납부 3M
+    장애인 추가공제 200만 적용.
+
+    근로소득공제 (4500~1억 5%):
+      = 1,200만 + (60M-45M)×5% = 1,275만 = 12,750,000
+    근로소득금액 = 60M - 1,275만 = 47,250,000
+    인적공제 = 본인 150 + 배우자 150 + 부양가족 150 + 장애인 200 = 650만 = 6,500,000
+    과표 = 47.25M - 650만 = 40,750,000
+    산출세액 (1400~5000 15%):
+      = 840,000 + (40,750,000 - 14,000,000)×15% = 840,000 + 4,012,500 = 4,852,500
+    근로세액공제 raw = 71.5만 + (485.25만 - 130만)×30% = 1,780,750
+      한도 (60M, 33M~70M): 740,000 - (60M-33M)×0.008 = 524,000 → min 660,000 → 660,000
+    표준세액공제 = 130,000
+    결정세액 = 4,852,500 - 660,000 - 130,000 = 4,062,500
+    지방 = 406,250
+    총 = 4,468,750
+    환급(prepaid 3M) = 3,000,000 - 4,468,750 = -1,468,750
+    """
+    inputs = CalcInputs(
+        gross_salary=60_000_000,
+        dependents=DependentsInput(
+            spouse=True, dependents_count=1, disabled_count=1
+        ),
+        prepaid_tax=3_000_000,
+    )
+    r = calculate(inputs)
+    assert r.earned_income_deduction == 12_750_000
+    assert r.personal_deduction == 6_500_000
+    assert r.taxable_income == 40_750_000
+    assert r.calculated_tax == 4_852_500
+    assert r.earned_income_tax_credit == 660_000
+    assert r.determined_tax == 4_062_500
+    assert r.local_income_tax == 406_250
+    assert r.refund_or_owed == -1_468_750
+
+
+def test_golden_very_low_income_15M():
+    """
+    총급여 15M / 단신 / 기납부 100,000
+    가장 낮은 누진세율(6%) 구간.
+
+    근로소득공제 (500~1500 40%): 1500만 경계 = 350만 + 1000만×40% = 750만 = 7,500,000
+      또는 1500~4500 시작점(750만 fixed) — 두 구간 접점에서 동일.
+    근로소득금액 = 1,500만 - 750만 = 7,500,000
+    인적공제 (본인) = 150만
+    과표 = 750만 - 150만 = 6,000,000
+    산출세액 (1400만 이하 6%) = 6,000,000 × 0.06 = 360,000
+    근로세액공제 raw (산출세액 ≤ 130만 → 55%) = 360,000 × 0.55 = 198,000
+      한도 (15M ≤ 33M): 740,000 → 198,000 그대로
+    표준세액공제 = 130,000
+    결정세액 = 360,000 - 198,000 - 130,000 = 32,000
+    지방 = 3,200
+    총 = 35,200
+    환급(prepaid 100,000) = 100,000 - 35,200 = 64,800
+    """
+    inputs = CalcInputs(gross_salary=15_000_000, prepaid_tax=100_000)
+    r = calculate(inputs)
+    assert r.earned_income_deduction == 7_500_000
+    assert r.taxable_income == 6_000_000
+    assert r.calculated_tax == 360_000
+    assert r.earned_income_tax_credit == 198_000
+    assert r.determined_tax == 32_000
+    assert r.local_income_tax == 3_200
+    assert r.refund_or_owed == 64_800
+
+
+def test_golden_executive_500M_40pct_bracket():
+    """
+    총급여 500M / 단신 / 기납부 100M
+    임원급 — 3억~5억 구간 40% 진입 + 근로소득공제 한도 cap.
+
+    근로소득공제 (1억 초과 2%):
+      raw = 1,475만 + (500M-100M)×2% = 1,475만 + 800만 = 2,275만
+      → 한도 2,000만 적용 = 20,000,000
+    근로소득금액 = 500M - 2,000만 = 480,000,000
+    인적공제 (본인) = 150만 = 1,500,000
+    과표 = 480M - 150만 = 478,500,000
+    산출세액 (3억~5억 40%):
+      = 94,060,000 + (478,500,000 - 300,000,000) × 40%
+      = 94,060,000 + 178,500,000 × 0.40
+      = 94,060,000 + 71,400,000
+      = 165,460,000
+    근로세액공제: 산출세액 거대하지만 한도(500M, 1.2억 초과 4번째 구간)
+      = 500,000 - (500M-120M)×0.005 = 500,000 - 1,900,000 = -1,400,000
+      → min 200,000 → 200,000
+    표준세액공제 = 130,000
+    결정세액 = 165,460,000 - 200,000 - 130,000 = 165,130,000
+    지방 = 16,513,000
+    총 = 181,643,000
+    환급(prepaid 100M) = 100,000,000 - 181,643,000 = -81,643,000 (큰 추징)
+    """
+    inputs = CalcInputs(gross_salary=500_000_000, prepaid_tax=100_000_000)
+    r = calculate(inputs)
+    assert r.earned_income_deduction == 20_000_000  # 한도 cap
+    assert r.earned_income_amount == 480_000_000
+    assert r.personal_deduction == 1_500_000
+    assert r.taxable_income == 478_500_000
+    assert r.calculated_tax == 165_460_000
+    assert r.earned_income_tax_credit == 200_000  # min cap
+    assert r.determined_tax == 165_130_000
+    assert r.local_income_tax == 16_513_000
+    assert r.refund_or_owed == -81_643_000
+
+
+# ============================================================
 # Provenance: 단계 trail 정확성
 # ============================================================
 
