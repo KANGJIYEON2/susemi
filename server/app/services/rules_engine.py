@@ -46,6 +46,59 @@ DEFAULT_RULES_DIR = (
 )
 
 
+# ---------------- 알려진 필드 화이트리스트 ----------------
+
+# build_eval_context 가 채우는 모든 키 + 한국어 라벨.
+# rule_compiler 가 LLM 프롬프트 + 검증에 이 목록을 사용.
+# 새 필드 추가 시 build_eval_context 와 여기 두 곳 모두 갱신해야 함.
+EVAL_CONTEXT_FIELDS: dict[str, str] = {
+    # 소득
+    "total_salary": "총급여 (원)",
+    "non_taxable": "비과세 급여 (원)",
+    "bonus": "상여금 (원)",
+    # 카드
+    "credit_card": "신용카드 사용액 (원)",
+    "debit_card": "직불·체크카드 사용액 (원)",
+    "cash_receipt": "현금영수증 사용액 (원)",
+    # 의료비
+    "medical_expense": "의료비 합계 (원)",
+    "severe_medical_for_disabled": "장애인 의료비 (원)",
+    "infertility_treatment_expense": "난임 시술 의료비 (원)",
+    "assistive_devices_expense": "보청기/보장구/의료기기 (원)",
+    "childbirth_care_expense": "산후조리원 등 (원)",
+    "glasses_contacts_expense": "안경/콘택트렌즈 (원)",
+    "family_medical_total": "가족 수기 의료비 합계 (원)",
+    # 기부금
+    "donation_total": "기부금 합계 (원)",
+    "donation_extra": "추가 기부금 (원)",
+    # 주택
+    "rent_in_pdf": "PDF 월세 (원)",
+    "housing_loan_interest": "주택자금대출 이자 (원)",
+    # 보험·연금
+    "insurance": "보장성 보험료 (원)",
+    "pension_saving": "연금저축 (원)",
+    "retirement_pension": "퇴직연금 (원)",
+    # 인적공제 — 숫자
+    "dependents_count": "부양가족 수 (명)",
+    "disabled_count": "장애인 가족 수 (명)",
+    "senior_count": "경로우대 가족 수 (명)",
+    # 인적공제 — 플래그
+    "has_spouse": "배우자 있음",
+    "single_parent": "한부모",
+    "female_householder": "부녀자 공제 대상",
+    # 조건 플래그
+    "householder": "세대주",
+    "no_house": "무주택",
+    "lease_contract": "임대차 계약 있음",
+    "has_loan": "주택자금대출 있음",
+    "child_education": "자녀 교육비 있음",
+    "self_education": "본인 교육비 있음",
+    "mid_small_company_worker": "중소기업 취업자 감면 대상",
+    # 메타
+    "tax_credit_type": "PDF 세액공제 유형",
+}
+
+
 # ---------------- legacy RuleContext (호환 유지) ----------------
 
 

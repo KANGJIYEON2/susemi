@@ -240,7 +240,18 @@ export default function WizardPage() {
               />
             )}
 
-            {step === 4 && <ResultStep restart={restart} />}
+            {step === 4 && (
+              <ResultStep
+                restart={restart}
+                inputs={{
+                  income,
+                  dependents,
+                  conditions,
+                  parsed_pdf: parsedPdf ?? defaultParsedPdf,
+                  manual_input: manualInput,
+                }}
+              />
+            )}
           </div>
         </section>
 

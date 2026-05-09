@@ -6,7 +6,14 @@ load_dotenv()
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import user_input, pdf_parse, manual_input, analyze
+from app.routers import (
+    admin_rules,
+    analyze,
+    manual_input,
+    pdf_parse,
+    user_input,
+    verify,
+)
 
 
 
@@ -35,6 +42,8 @@ app.include_router(user_input.router, prefix="/api/v1", tags=["user-input"])
 app.include_router(pdf_parse.router, prefix="/api/v1", tags=["pdf"])
 app.include_router(manual_input.router, prefix="/api/v1", tags=["manual-input"])
 app.include_router(analyze.router, prefix="/api/v1", tags=["analyze"])
+app.include_router(admin_rules.router, prefix="/api/v1", tags=["admin-rules"])
+app.include_router(verify.router, prefix="/api/v1", tags=["verify"])
 
 
 @app.get("/")

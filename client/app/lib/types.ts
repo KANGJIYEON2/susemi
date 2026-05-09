@@ -114,3 +114,49 @@ export type AnalyzeResponse = {
   /** 모든 룰 평가 결과 (UI 가 [rule_id] anchor 를 lookup 할 때 사용) */
   evaluations: RuleEvaluation[];
 };
+
+/* -------------------- Phase 3-3: 검증 -------------------- */
+
+export type CompanyFiling = {
+  determined_tax: number;
+  prepaid_tax: number;
+  earned_income_deduction?: number | null;
+  earned_income_amount?: number | null;
+  personal_deduction?: number | null;
+  taxable_income?: number | null;
+  calculated_tax?: number | null;
+  earned_income_tax_credit?: number | null;
+  local_income_tax?: number | null;
+  notes?: string | null;
+};
+
+export type Severity = "match" | "minor" | "major" | "missing";
+
+export type StepDiff = {
+  name: string;
+  label: string;
+  legal_anchor: string | null;
+  our_value: number;
+  company_value: number | null;
+  delta: number | null;
+  severity: Severity;
+  note: string | null;
+};
+
+export type VerificationReport = {
+  year: number;
+  our_total: number;
+  company_total: number | null;
+  final_delta: number | null;
+  refund_delta: number | null;
+  steps: StepDiff[];
+  summary: string;
+  has_major_diff: boolean;
+};
+
+export type VerifyRequest = {
+  request: AnalyzeRequest;
+  filing: CompanyFiling;
+  extra_income_deductions?: number;
+  extra_tax_credits?: number;
+};
