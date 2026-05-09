@@ -22,3 +22,7 @@ tqdm==4.67.1
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 uvicorn==0.38.0
+
+# --- dev (테스트) ---
+pytest==8.3.4
+pytest-asyncio==0.25.0

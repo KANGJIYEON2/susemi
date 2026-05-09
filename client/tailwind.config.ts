@@ -1,24 +1,16 @@
 import type { Config } from "tailwindcss";
 
+/**
+ * Tailwind v4 는 CSS-first config 를 권장.
+ * 브랜드 토큰은 globals.css 의 @theme inline 에 정의되어 있음.
+ * 이 파일은 content path 와 plugin 만 유지.
+ */
 const config: Config = {
   content: ["./app/**/*.{js,ts,jsx,tsx}", "./components/**/*.{js,ts,jsx,tsx}"],
   theme: {
-    extend: {
-      colors: {
-        bgMain: "#FFF8DE",
-        bgSoft: "#FFF2C6",
-        accentBlueLight: "#AAC4F5",
-        accentBlue: "#8CA9FF",
-        highlight: "#FFD860",
-      },
-      boxShadow: {
-        soft: "0 10px 25px rgba(0,0,0,0.06)",
-      },
-      borderRadius: {
-        xl2: "1.25rem",
-      },
-    },
+    extend: {},
   },
   plugins: [],
 };
+
 export default config;

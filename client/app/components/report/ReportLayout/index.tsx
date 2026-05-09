@@ -1,149 +1,160 @@
 "use client";
 
+import {
+  AlertCircle,
+  CheckCircle2,
+  FileText,
+  Lightbulb,
+  Loader2,
+  Sparkles,
+} from "lucide-react";
 import { AnalyzeResponse } from "@/app/lib/types";
-import Spinner from "@/app/components/ui/Spinner";
 
-/* 공통 카드 스타일 */
-const cardClass =
-  "bg-[#FFFDF5] border border-[#F3E6C0] rounded-xl p-6 shadow-sm";
-
-/* 섹션 헤더 */
-const sectionTitle =
-  "text-lg font-bold text-slate-900 mb-3 flex items-center gap-2";
-
-export default function ReportLayout({
-  data,
-  loading,
-  error,
-}: {
+interface Props {
   data?: AnalyzeResponse | null;
   loading?: boolean;
   error?: string | null;
-}) {
-  /* 로딩 */
-  if (loading)
+}
+
+export default function ReportLayout({ data, loading, error }: Props) {
+  if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-72 gap-4 text-center">
-        <div className="scale-110">
-          <p className="text-slate-600 text-sm animate-pulse">
-            🤓 수세미가 연말정산 Why 리포트를 작성 중입니다…
-          </p>
-        </div>
+      <div className="flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center">
+        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+        <p className="text-[13px] font-medium text-slate-700">
+          항목별 Why 리포트를 작성 중입니다…
+        </p>
+        <p className="text-[11px] text-slate-400">잠시만 기다려주세요.</p>
       </div>
     );
+  }
 
-  /* 에러시 */
-  if (error)
+  if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-center px-6">
-        <div className="text-4xl mb-2">🥲</div>
-        <p className="text-red-500 text-sm font-medium">{error}</p>
-      </div>
-    );
-
-  /* 빈 값일 경우 */
-  if (!data)
-    return (
-      <div className="flex flex-col items-center justify-center h-64 text-center opacity-60">
-        <div className="text-4xl">✨</div>
-        <p className="text-slate-500 text-sm mt-2">
-          아직 분석 결과가 없습니다.
+      <div className="flex min-h-[220px] flex-col items-center justify-center gap-2 rounded-2xl border border-red-200 bg-red-50/40 px-6 py-8 text-center">
+        <AlertCircle className="h-5 w-5 text-red-500" />
+        <p className="text-[13px] font-medium text-red-600">{error}</p>
+        <p className="text-[11px] text-slate-500">
+          잠시 후 다시 시도하거나 입력값을 확인해 주세요.
         </p>
       </div>
     );
+  }
 
-  /* 메인 section*/
+  if (!data) {
+    return (
+      <div className="flex min-h-[220px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-200 bg-white/60 px-6 py-8 text-center">
+        <FileText className="h-5 w-5 text-slate-400" />
+        <p className="text-[13px] font-medium text-slate-600">
+          아직 분석 결과가 없어요
+        </p>
+        <p className="text-[11px] text-slate-400">
+          왼쪽 위저드를 끝까지 진행하면 여기에 리포트가 표시됩니다.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full flex justify-center">
-      <div className="w-full max-w-3xl px-4 py-10 space-y-12">
-        {/* SUMMARY */}
-        <section className="space-y-3">
-          <span className="text-xs uppercase font-semibold text-[#F5A623] tracking-wide">
-            Summary
-          </span>
+    <div className="space-y-7">
+      {/* Summary */}
+      <section>
+        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#CA8A04]">
+          <Sparkles className="h-3 w-3" />
+          Summary
+        </div>
+        <h1 className="mt-2 text-[22px] font-bold leading-snug text-slate-900">
+          {data.summary.headline}
+        </h1>
 
-          <h1 className="text-2xl font-bold text-slate-900 leading-snug">
-            {data.summary.headline}
-          </h1>
+        {data.summary.key_points.length > 0 ? (
+          <ul className="mt-4 space-y-2 rounded-2xl border border-slate-200 bg-white p-4">
+            {data.summary.key_points.map((p, i) => (
+              <li
+                key={i}
+                className="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-700"
+              >
+                <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                <span>{p}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
 
-          <div className={cardClass}>
-            <ul className="space-y-3">
-              {data.summary.key_points.map((p, i) => (
-                <li
-                  key={i}
-                  className="flex gap-3 text-sm text-slate-700 leading-relaxed"
-                >
-                  <span className="w-5 h-5 rounded-full bg-[#FFD860] text-white text-[10px] flex items-center justify-center font-bold">
-                    ✓
-                  </span>
-                  {p}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
+      {/* Sections */}
+      <div className="space-y-5">
+        {data.sections.map((s, idx) => (
+          <section
+            key={s.id}
+            className="rounded-2xl border border-slate-200 bg-white p-5"
+          >
+            <div className="flex items-baseline gap-2">
+              <span className="tabular text-[11px] font-semibold text-slate-400">
+                {String(idx + 1).padStart(2, "0")}
+              </span>
+              <h2 className="text-[15px] font-semibold text-slate-900">
+                {s.title}
+              </h2>
+            </div>
 
-        {/* SECTIONS */}
-        <div className="space-y-10">
-          {data.sections.map((s) => (
-            <section key={s.id} className="space-y-3">
-              <h2 className={sectionTitle}>{s.title}</h2>
+            {s.highlight ? (
+              <p className="mt-2 text-[13px] font-medium leading-relaxed text-slate-800">
+                {s.highlight}
+              </p>
+            ) : null}
 
-              <p className="text-[15px] text-slate-700 leading-7 whitespace-pre-line">
+            {s.detail ? (
+              <p className="mt-2 whitespace-pre-line text-[13px] leading-7 text-slate-600">
                 {s.detail}
               </p>
+            ) : null}
 
-              {/* TIP BOX */}
-              {s.tips.length > 0 && (
-                <div className="bg-[#FFF8DA] border border-[#F2E7A5] rounded-xl p-4 shadow-sm">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-lg">💡</span>
-                    <span className="text-xs font-semibold text-amber-700">
-                      수세미의 TIP
-                    </span>
-                  </div>
-
-                  <ul className="space-y-1.5">
-                    {s.tips.map((t, i) => (
-                      <li
-                        key={i}
-                        className="text-sm text-slate-800 leading-relaxed flex gap-2"
-                      >
-                        <span className="text-amber-400">•</span>
-                        {t}
-                      </li>
-                    ))}
-                  </ul>
+            {s.tips && s.tips.length > 0 ? (
+              <div className="mt-4 rounded-xl border border-[#FDE68A] bg-[#FFFBEA] p-3.5">
+                <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-[#854D0E]">
+                  <Lightbulb className="h-3 w-3" />
+                  TIP
                 </div>
-              )}
-            </section>
-          ))}
-        </div>
-
-        {/* FINAL TIPS */}
-        {data.tax_tips.length > 0 && (
-          <section className="bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-inner space-y-3">
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2 mb-2">
-              <span className="text-xl">🎓</span>
-              내년을 위한 총정리
-            </h2>
-
-            <ul className="space-y-3">
-              {data.tax_tips.map((t, i) => (
-                <li
-                  key={i}
-                  className="flex gap-3 text-sm text-slate-700 leading-relaxed"
-                >
-                  <span className="w-6 h-6 flex items-center justify-center bg-slate-200 text-slate-600 rounded-full text-[11px] font-bold">
-                    {i + 1}
-                  </span>
-                  {t}
-                </li>
-              ))}
-            </ul>
+                <ul className="space-y-1">
+                  {s.tips.map((t, i) => (
+                    <li
+                      key={i}
+                      className="flex gap-1.5 text-[12px] leading-relaxed text-slate-700"
+                    >
+                      <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[#CA8A04]" />
+                      <span>{t}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </section>
-        )}
+        ))}
       </div>
+
+      {/* Final tips */}
+      {data.tax_tips.length > 0 ? (
+        <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+          <h2 className="flex items-center gap-1.5 text-[14px] font-semibold text-slate-900">
+            <Lightbulb className="h-3.5 w-3.5 text-[#CA8A04]" />
+            내년을 위한 총정리
+          </h2>
+          <ol className="mt-3 space-y-2.5">
+            {data.tax_tips.map((t, i) => (
+              <li
+                key={i}
+                className="flex gap-2.5 text-[13px] leading-relaxed text-slate-700"
+              >
+                <span className="tabular flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold text-slate-500 ring-1 ring-slate-200">
+                  {i + 1}
+                </span>
+                <span>{t}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
     </div>
   );
 }

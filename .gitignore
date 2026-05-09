@@ -1,6 +1,6 @@
-#  환경 변수
-.env
-.env.*
+#  환경 변수 (.env.example 만 템플릿으로 추적)
+.env*
+!.env.example
 
 #  파이썬 캐시
 __pycache__/

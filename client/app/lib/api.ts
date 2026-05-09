@@ -42,7 +42,9 @@ export async function analyzeTax(
   return res.json();
 }
 
-export async function postManualInput(payload: any): Promise<any> {
+export async function postManualInput(
+  payload: unknown
+): Promise<{ status: string; message?: string | null }> {
   const res = await fetch(`${API_BASE}/manual-input`, {
     method: "POST",
     headers: {

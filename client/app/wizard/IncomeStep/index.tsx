@@ -1,18 +1,31 @@
 "use client";
 
 import { ChangeEvent, Dispatch, SetStateAction } from "react";
+import { ArrowLeft, ArrowRight, Home, Lightbulb, Users, Wallet } from "lucide-react";
 import Button from "@/app/components/ui/Button";
-import type { Income, Dependents, Conditions } from "@/app/lib/types";
+import Input from "@/app/components/ui/Input";
+import Card from "@/app/components/ui/Card";
+import type { Conditions, Dependents, Income } from "@/app/lib/types";
 
-// 숫자 포맷 + UI 클래스
-const format = (n: number) =>
-  n.toLocaleString("ko-KR", { maximumFractionDigits: 0 });
+const formatNumber = (n: number) =>
+  n ? n.toLocaleString("ko-KR", { maximumFractionDigits: 0 }) : "";
 
-const inputClass =
-  "w-full px-4 py-3.5 rounded-xl bg-[#FFFDF5] border border-[#E8DDBF] text-sm focus:outline-none focus:ring-2 focus:ring-[#FFD84D] transition";
+const parseNumber = (raw: string) => {
+  const cleaned = raw.replace(/,/g, "").trim();
+  return cleaned === "" ? 0 : Number(cleaned) || 0;
+};
 
-const checkClass =
-  "w-4 h-4 rounded border-[#E4D7B0] text-[#FFD84D] focus:ring-[#FFD84D]";
+interface Props {
+  income: Income;
+  setIncome: Dispatch<SetStateAction<Income>>;
+  dependents: Dependents;
+  setDependents: Dispatch<SetStateAction<Dependents>>;
+  conditions: Conditions;
+  setConditions: Dispatch<SetStateAction<Conditions>>;
+  canNext: boolean;
+  next: () => void;
+  prev: () => void;
+}
 
 export default function IncomeStep({
   income,
@@ -24,229 +37,276 @@ export default function IncomeStep({
   canNext,
   next,
   prev,
-}: {
-  income: Income;
-  setIncome: Dispatch<SetStateAction<Income>>;
-  dependents: Dependents;
-  setDependents: Dispatch<SetStateAction<Dependents>>;
-  conditions: Conditions;
-  setConditions: Dispatch<SetStateAction<Conditions>>;
-  canNext: boolean;
-  next: () => void;
-  prev: () => void;
-}) {
-  // 숫자 핸들러
+}: Props) {
   const onNum =
-    <T,>(setter: Dispatch<SetStateAction<T>>, key: keyof T) =>
+    <T extends object>(setter: Dispatch<SetStateAction<T>>, key: keyof T) =>
     (e: ChangeEvent<HTMLInputElement>) => {
-      const raw = e.target.value.replace(/,/g, "");
-      const num = raw === "" ? 0 : Number(raw);
-      setter((prev: any) => ({ ...prev, [key]: num }));
+      const num = parseNumber(e.target.value);
+      setter((prev) => ({ ...prev, [key]: num }) as T);
     };
 
-  // boolean 핸들러
   const onBool =
-    <T,>(setter: Dispatch<SetStateAction<T>>, key: keyof T) =>
+    <T extends object>(setter: Dispatch<SetStateAction<T>>, key: keyof T) =>
     (e: ChangeEvent<HTMLInputElement>) =>
-      setter((prev: any) => ({ ...prev, [key]: e.target.checked }));
+      setter((prev) => ({ ...prev, [key]: e.target.checked }) as T);
 
   return (
     <form
-      className="flex flex-col gap-8 pb-20"
+      className="flex flex-col gap-8 px-2 py-6 pb-24"
       onSubmit={(e) => {
         e.preventDefault();
         if (canNext) next();
       }}
     >
-      {/* 소득 정보 */}
-      <section>
-        <h3 className="text-base font-semibold text-slate-800 mb-3">
-          💰 소득 정보
-        </h3>
+      <SectionHeader
+        icon={<Wallet className="h-4 w-4 text-slate-700" />}
+        title="소득 정보"
+        sub="회사에서 받은 연봉(세전)을 기준으로 입력해주세요."
+      />
+      <div className="space-y-3">
+        <Field label="총급여 (연봉, 세전)" required>
+          <Input
+            type="text"
+            inputMode="numeric"
+            numeric
+            placeholder="0"
+            suffix="원"
+            value={formatNumber(income.total_salary)}
+            onChange={onNum(setIncome, "total_salary")}
+          />
+        </Field>
 
-        <div className="space-y-4 text-sm">
-          {/* 총급여 */}
-          <div>
-            <label className="font-medium">총급여 (연봉, 세전)</label>
-            <input
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="비과세 급여 (선택)">
+            <Input
               type="text"
-              className={inputClass}
-              placeholder="예: 45,000,000"
-              value={income.total_salary ? format(income.total_salary) : ""}
-              onChange={onNum(setIncome, "total_salary")}
-            />
-          </div>
-
-          {/* 비과세 */}
-          <div>
-            <label className="text-slate-600">비과세 급여 (선택)</label>
-            <input
-              type="text"
-              className={inputClass}
-              placeholder="없으면 0"
-              value={income.non_taxable ? format(income.non_taxable) : ""}
+              inputMode="numeric"
+              numeric
+              placeholder="0"
+              suffix="원"
+              value={formatNumber(income.non_taxable ?? 0)}
               onChange={onNum(setIncome, "non_taxable")}
             />
-          </div>
-
-          {/* 상여금 */}
-          <div>
-            <label className="text-slate-600">상여금 (선택)</label>
-            <input
+          </Field>
+          <Field label="상여금 (선택)">
+            <Input
               type="text"
-              className={inputClass}
-              placeholder="없으면 0"
-              value={income.bonus ? format(income.bonus) : ""}
+              inputMode="numeric"
+              numeric
+              placeholder="0"
+              suffix="원"
+              value={formatNumber(income.bonus ?? 0)}
               onChange={onNum(setIncome, "bonus")}
             />
-          </div>
+          </Field>
         </div>
-      </section>
+      </div>
 
-      {/* 인적공제 */}
+      <Divider />
 
-      <section>
-        <h3 className="text-base font-semibold text-slate-800 mb-3">
-          👨‍👩‍👧 가족 & 인적공제
-        </h3>
+      <SectionHeader
+        icon={<Users className="h-4 w-4 text-slate-700" />}
+        title="가족 · 인적공제"
+        sub="해당 없으면 비워두셔도 돼요."
+      />
 
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              className={checkClass}
-              checked={dependents.has_spouse}
-              onChange={onBool(setDependents, "has_spouse")}
-            />
-            배우자 있음
-          </label>
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+        <CheckRow
+          checked={dependents.has_spouse}
+          label="배우자 있음"
+          onChange={onBool(setDependents, "has_spouse")}
+        />
+        <CheckRow
+          checked={dependents.single_parent}
+          label="한부모"
+          onChange={onBool(setDependents, "single_parent")}
+        />
+        <CheckRow
+          checked={dependents.female_householder}
+          label="부녀자 공제"
+          onChange={onBool(setDependents, "female_householder")}
+        />
+      </div>
 
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              className={checkClass}
-              checked={dependents.single_parent}
-              onChange={onBool(setDependents, "single_parent")}
-            />
-            한부모
-          </label>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Field label="부양가족 수" small>
+          <Input
+            type="text"
+            inputMode="numeric"
+            numeric
+            placeholder="0"
+            suffix="명"
+            value={formatNumber(dependents.dependents_count)}
+            onChange={onNum(setDependents, "dependents_count")}
+          />
+        </Field>
+        <Field label="장애인 가족 수" small>
+          <Input
+            type="text"
+            inputMode="numeric"
+            numeric
+            placeholder="0"
+            suffix="명"
+            value={formatNumber(dependents.disabled_count)}
+            onChange={onNum(setDependents, "disabled_count")}
+          />
+        </Field>
+        <Field label="경로우대 (만 70세 ↑)" small>
+          <Input
+            type="text"
+            inputMode="numeric"
+            numeric
+            placeholder="0"
+            suffix="명"
+            value={formatNumber(dependents.senior_count)}
+            onChange={onNum(setDependents, "senior_count")}
+          />
+        </Field>
+      </div>
 
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              className={checkClass}
-              checked={dependents.female_householder}
-              onChange={onBool(setDependents, "female_householder")}
-            />
-            부녀자 공제
-          </label>
+      <Card accent pad="sm" className="bg-[#FFFBEA]">
+        <div className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold text-slate-900">
+          <Lightbulb className="h-3.5 w-3.5 text-[#CA8A04]" />
+          인적공제 한 줄 정리
         </div>
+        <ul className="space-y-1 text-[12px] leading-relaxed text-slate-600">
+          <li>· 부양가족 소득금액 100만원 이하(근로 총급여 500만원 이하 동일 인정).</li>
+          <li>· 나이요건: 20세 이하 · 60세 이상. 장애인은 나이 제한 없음.</li>
+          <li>· 자녀세액공제 받는 자녀와 인적공제 중복 불가.</li>
+        </ul>
+      </Card>
 
-        {/* 숫자 입력 */}
-        <div className="grid grid-cols-2 gap-4 mt-4">
-          <div>
-            <label className="text-sm text-slate-600">부양가족 수</label>
-            <input
-              type="text"
-              className={inputClass}
-              value={
-                dependents.dependents_count
-                  ? format(dependents.dependents_count)
-                  : ""
-              }
-              onChange={onNum(setDependents, "dependents_count")}
-            />
-          </div>
+      <Divider />
 
-          <div>
-            <label className="text-sm text-slate-600">장애인 가족 수</label>
-            <input
-              type="text"
-              className={inputClass}
-              value={
-                dependents.disabled_count
-                  ? format(dependents.disabled_count)
-                  : ""
-              }
-              onChange={onNum(setDependents, "disabled_count")}
-            />
-          </div>
-
-          <div>
-            <label className="text-sm text-slate-600">경로우대 (70세 ↑)</label>
-            <input
-              type="text"
-              className={inputClass}
-              value={
-                dependents.senior_count ? format(dependents.senior_count) : ""
-              }
-              onChange={onNum(setDependents, "senior_count")}
-            />
-          </div>
-        </div>
-        <div className="bg-[#FFF7D1] border border-[#F5DE9D] rounded-xl px-4 py-3 text-[13px] text-slate-700 leading-relaxed mt-4">
-          <p className="font-semibold mb-2">💡 인적공제 TIP</p>
-
-          <ul className="list-disc pl-4 space-y-1">
-            <li>
-              인적공제는 <b>연 소득금액 100만원 이하</b>인 경우만 가능합니다.
-            </li>
-            <li>
-              근로자의 경우 <b>총급여 500만원 이하</b>면 소득금액 100만원 이하로
-              인정됩니다.
-            </li>
-            <li>
-              부양가족 나이요건: <b>20세 이하 · 60세 이상</b>만 공제 대상입니다.
-            </li>
-            <li>
-              <b>장애인은 나이 제한 없음</b>, 소득요건만 충족하면 가능해요.
-            </li>
-            <li>
-              자녀세액공제 받는 자녀는 <b>인적공제 중복 불가</b>입니다.
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      {/* 세법 요건 체크 */}
-      <section>
-        <h3 className="text-base font-semibold text-slate-800 mb-3">
-          🏠 세법 요건 체크
-        </h3>
-
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          {/* boolean 7개 */}
-          {[
+      <SectionHeader
+        icon={<Home className="h-4 w-4 text-slate-700" />}
+        title="세법 요건 체크"
+        sub="해당하는 항목만 체크해주세요."
+      />
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+        {(
+          [
             ["householder", "세대주"],
             ["no_house", "무주택"],
             ["lease_contract", "임대차 계약 있음"],
-            ["has_loan", "주택대출 있음"],
+            ["has_loan", "주택자금 대출 있음"],
             ["child_education", "자녀 교육비 있음"],
             ["self_education", "본인 교육비 있음"],
             ["mid_small_company_worker", "중소기업 취업자 감면 대상"],
-          ].map(([key, label]) => (
-            <label key={key} className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                className={checkClass}
-                checked={(conditions as any)[key]}
-                onChange={onBool(setConditions, key as keyof Conditions)}
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-      </section>
+          ] as const
+        ).map(([key, label]) => (
+          <CheckRow
+            key={key}
+            checked={Boolean(conditions[key])}
+            label={label}
+            onChange={onBool(setConditions, key)}
+          />
+        ))}
+      </div>
 
-      {/* 버튼 */}
-      <div className="flex gap-2 mt-4">
-        <Button type="button" variant="ghost" onClick={prev}>
-          ← 이전
+      <div className="sticky bottom-0 -mx-2 mt-4 flex gap-2 border-t border-slate-200 bg-white/95 px-2 py-3 backdrop-blur">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={prev}
+          leftIcon={<ArrowLeft className="h-4 w-4" />}
+        >
+          이전
         </Button>
-        <Button type="submit" full disabled={!canNext}>
-          다음 단계로 →
+        <Button
+          type="submit"
+          variant="primary"
+          full
+          disabled={!canNext}
+          rightIcon={<ArrowRight className="h-4 w-4" />}
+        >
+          다음 단계로
         </Button>
       </div>
     </form>
   );
+}
+
+/* ---------- 내부 헬퍼 컴포넌트 ---------- */
+
+function SectionHeader({
+  icon,
+  title,
+  sub,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  sub?: string;
+}) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-lg bg-slate-50">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <h3 className="text-[15px] font-semibold text-slate-900">{title}</h3>
+        {sub ? (
+          <p className="mt-0.5 text-[12px] text-slate-500">{sub}</p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  required,
+  small,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  small?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span
+        className={`${
+          small ? "text-[12px]" : "text-[13px]"
+        } font-medium text-slate-700`}
+      >
+        {label}
+        {required ? <span className="ml-0.5 text-[#EAB308]">*</span> : null}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function CheckRow({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <label
+      className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-[13px] cursor-pointer transition-colors ${
+        checked
+          ? "border-slate-900 bg-slate-900 text-white"
+          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+      }`}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        className="h-4 w-4 cursor-pointer accent-[#FACC15]"
+      />
+      <span className="select-none">{label}</span>
+    </label>
+  );
+}
+
+function Divider() {
+  return <div className="h-px w-full bg-slate-100" />;
 }

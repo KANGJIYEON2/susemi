@@ -1,7 +1,23 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
+/* ----------------------------------------------------------
+   susemi 디자인 토큰
+   - 브랜드: 노랑 (#FACC15) — CTA / 숫자 highlight / tip 박스에만 (점·선·면 중 점·선)
+   - 신뢰: 슬레이트 (slate-900) — 본문/헤딩/primary CTA (면)
+   - 흰색·slate-50 을 메인 배경으로
+----------------------------------------------------------- */
+
+@theme inline {
+  --color-brand-yellow: #facc15;
+  --color-brand-yellow-soft: #fef9c3;
+  --color-trust-navy: #0f172a;
+  --color-trust-navy-soft: #1e293b;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* (보존) ChangwonDangam 라운드 폰트.
+   현재는 어디에도 적용하지 않음. 추후 마스코트 옆 hero 카피 등에 한정해 쓸 수 있도록 로드만 유지. */
 @font-face {
   font-family: "ChangwonDangamRounded";
   src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/2511-1@1.0/ChangwonDangamRound-Regular.woff2")
@@ -9,20 +25,40 @@
   font-weight: normal;
   font-display: swap;
 }
+
 html,
 body {
-  padding: 0;
   margin: 0;
-  font-family: "ChangwonDangamRounded", system-ui, -apple-system,
-    BlinkMacSystemFont, sans-serif;
-  background-color: #fff8de;
-  color: #333333;
+  padding: 0;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+body {
+  font-family:
+    var(--font-geist-sans),
+    "Pretendard",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Apple SD Gothic Neo",
+    "Segoe UI",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
 }
 
 * {
   box-sizing: border-box;
+  word-break: keep-all;
 }
 
-body {
-  scroll-behavior: smooth;
+/* 금액 등 수치 표시용 */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: #fef9c3;
+  color: #0f172a;
 }

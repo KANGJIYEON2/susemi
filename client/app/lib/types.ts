@@ -92,7 +92,7 @@ export type Section = {
   title: string;
   highlight: string;
   detail: string;
-  evidence: any;
+  evidence: string | Record<string, unknown> | null;
   tips: string[];
 };
 
