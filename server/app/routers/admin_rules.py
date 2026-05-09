@@ -15,8 +15,9 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
+from app.rate_limit import LIMIT_LLM_ADMIN, limiter
 from app.schemas.rule_draft_schema import (
     CompileRequest,
     CompileResponse,
@@ -89,7 +90,8 @@ async def _fetch_law_text(req: CompileRequest) -> tuple[str, str | None, str | N
 
 
 @router.post("/admin/rules/compile", response_model=CompileResponse)
-async def compile_endpoint(req: CompileRequest):
+@limiter.limit(LIMIT_LLM_ADMIN)
+async def compile_endpoint(request: Request, req: CompileRequest):
     law_text, legal_text_hash, source_api_id = await _fetch_law_text(req)
 
     if not law_text or len(law_text.strip()) < 20:

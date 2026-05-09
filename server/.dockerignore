@@ -1,0 +1,24 @@
+venv
+.venv
+__pycache__
+**/__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+.coverage
+.git
+.gitignore
+.env*
+!.env.example
+*.log
+.DS_Store
+README.md
+.vscode
+.idea
+tests
+# 캐시/인덱스는 런타임 볼륨에서 채워짐
+app/data/legal_cache/*.json
+app/data/legal_cache/**/*.json
+app/data/rag_index/*.json
+app/data/rag_index/**/*.json
+app/data/rules/drafts

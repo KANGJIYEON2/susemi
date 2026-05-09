@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
+from app.rate_limit import LIMIT_EMBEDDING, LIMIT_INDEX, limiter
 from app.schemas.rag_schema import (
     IndexLawRequest,
     IndexLawResponse,
@@ -31,7 +32,8 @@ router = APIRouter(dependencies=[Depends(require_admin_token)])
 
 
 @router.post("/rag/index", response_model=IndexLawResponse)
-async def index_endpoint(req: IndexLawRequest):
+@limiter.limit(LIMIT_INDEX)
+async def index_endpoint(request: Request, req: IndexLawRequest):
     if not (req.law_id or req.law_mst):
         raise HTTPException(
             status_code=400,
@@ -77,7 +79,8 @@ async def index_endpoint(req: IndexLawRequest):
 
 
 @router.post("/rag/search", response_model=SearchResponse)
-async def search_endpoint(req: SearchRequest):
+@limiter.limit(LIMIT_EMBEDDING)
+async def search_endpoint(request: Request, req: SearchRequest):
     try:
         hits, total = await rag.search(
             req.query,

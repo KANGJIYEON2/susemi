@@ -1,0 +1,79 @@
+# docker-compose.yml
+#
+# 운영용 — EC2 에 git clone 후 `docker compose up -d`.
+#
+# .env 파일 필요 (예시: .env.example):
+#   OPENAI_API_KEY      - OpenAI 키
+#   OPEN_LAW_API_KEY    - 국가법령정보센터 OC
+#   ADMIN_TOKEN         - /admin/* 가드용 임의 문자열
+#   CORS_ORIGINS        - 쉼표 구분 (예: "http://1.2.3.4,https://susemi.kr")
+#   SITE_ADDRESS        - Caddy 사이트 주소 (예: ":80" 또는 "susemi.kr")
+
+name: susemi
+
+services:
+  server:
+    build:
+      context: ./server
+    image: susemi-server:latest
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      # 영속 데이터 — 런타임에 채워지는 캐시·드래프트만 호스트에 마운트
+      - ./server/app/data/legal_cache:/app/app/data/legal_cache
+      - ./server/app/data/rag_index:/app/app/data/rag_index
+      - ./server/app/data/rules/drafts:/app/app/data/rules/drafts
+    expose:
+      - "8000"
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request,sys; urllib.request.urlopen(\"http://localhost:8000/\",timeout=2); sys.exit(0)' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  client:
+    build:
+      context: ./client
+      args:
+        # 같은 호스트(caddy 뒤)에서 서빙되니 상대 경로면 충분
+        NEXT_PUBLIC_API_BASE_URL: /api/v1
+    image: susemi-client:latest
+    expose:
+      - "3000"
+    networks:
+      - internal
+    restart: unless-stopped
+    depends_on:
+      - server
+
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      # 기본은 HTTP only (:80) — 도메인 붙이면 .env 에서 SITE_ADDRESS=domain.com
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - internal
+    restart: unless-stopped
+    depends_on:
+      - server
+      - client
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,5 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
+from app.rate_limit import LIMIT_LLM_USER, limiter
 from app.schemas.analysis_schema import AnalyzeRequest, AnalyzeResponse, Section
 from app.schemas.rag_schema import SearchHit
 from app.schemas.rule_schema import RuleEvaluation
@@ -72,7 +73,8 @@ async def _fetch_rag_context(
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
-async def analyze_tax(data: AnalyzeRequest):
+@limiter.limit(LIMIT_LLM_USER)
+async def analyze_tax(request: Request, data: AnalyzeRequest):
     """
     PAGE 7: 전체 데이터 기반 Why 분석.
     1) 규칙엔진: JSON 룰 평가 → RuleEvaluation 리스트 (각각 legal_anchor 포함)
