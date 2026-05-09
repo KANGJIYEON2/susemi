@@ -20,6 +20,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -140,9 +141,25 @@ class LegalAPIClient:
 
     # ----- 캐시 -----
 
+    @staticmethod
+    def _safe_path_component(value: str, label: str) -> str:
+        if not isinstance(value, str) or not value:
+            raise LegalAPIError(f"{label} 는 비어있지 않은 문자열이어야 합니다.")
+        if not re.match(r"^[A-Za-z0-9_\-]+$", value):
+            raise LegalAPIError(
+                f"{label} 에 허용되지 않는 문자 포함: {value!r}. "
+                "영문/숫자/_/- 만 가능."
+            )
+        return value
+
     def _cache_path(self, law_id: str, effective_date: str | None) -> Path:
-        key = effective_date or "latest"
-        return self.cache_root / law_id / f"{key}.json"
+        safe_law = self._safe_path_component(law_id, "law_id")
+        key = (
+            self._safe_path_component(effective_date, "effective_date")
+            if effective_date
+            else "latest"
+        )
+        return self.cache_root / safe_law / f"{key}.json"
 
     def _read_cache(
         self, law_id: str, effective_date: str | None

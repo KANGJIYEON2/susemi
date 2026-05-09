@@ -28,6 +28,7 @@ from app.schemas.rule_draft_schema import (
 from app.services import rule_drafts_store
 from app.services.legal_api import LegalAPIClient, LegalAPIError
 from app.services.rule_compiler import compile_rule
+from app.services.rule_drafts_store import UnsafeIdError
 
 
 router = APIRouter()
@@ -128,7 +129,10 @@ def list_drafts_endpoint(year: int | None = Query(default=None)):
 def load_draft_endpoint(
     rule_id: str, year: int = Query(default=2025)
 ):
-    draft = rule_drafts_store.load_draft(year, rule_id)
+    try:
+        draft = rule_drafts_store.load_draft(year, rule_id)
+    except UnsafeIdError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     if draft is None:
         raise HTTPException(status_code=404, detail="드래프트 없음")
     return draft
@@ -147,6 +151,8 @@ def approve_endpoint(
         rule = rule_drafts_store.approve_draft(
             year, rule_id, review_notes=body.review_notes
         )
+    except UnsafeIdError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     return DecideResponse(
@@ -165,9 +171,12 @@ def reject_endpoint(
     body: DecideRequest,
     year: int = Query(default=2025),
 ):
-    ok = rule_drafts_store.reject_draft(
-        year, rule_id, review_notes=body.review_notes
-    )
+    try:
+        ok = rule_drafts_store.reject_draft(
+            year, rule_id, review_notes=body.review_notes
+        )
+    except UnsafeIdError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     if not ok:
         raise HTTPException(status_code=404, detail="드래프트 없음")
     return DecideResponse(

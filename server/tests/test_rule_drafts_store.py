@@ -202,6 +202,48 @@ def test_approve_missing_draft_raises(tmp_path: Path):
 # -------------------- reject --------------------
 
 
+def test_path_traversal_blocked_in_save(tmp_path: Path):
+    """rule_id 에 ../ 포함 시 저장 단계에서 거부 (path traversal 방어)."""
+    from app.services.rule_drafts_store import UnsafeIdError
+
+    rule = _make_card_rule()
+    rule.rule_id = "../../../../etc/passwd"
+    draft = _make_draft(rule)
+    with pytest.raises(UnsafeIdError):
+        rule_drafts_store.save_draft(draft, data_dir=tmp_path)
+
+
+def test_path_traversal_blocked_in_load(tmp_path: Path):
+    from app.services.rule_drafts_store import UnsafeIdError
+
+    with pytest.raises(UnsafeIdError):
+        rule_drafts_store.load_draft(2025, "../escape", data_dir=tmp_path)
+
+
+def test_path_traversal_blocked_in_delete(tmp_path: Path):
+    from app.services.rule_drafts_store import UnsafeIdError
+
+    with pytest.raises(UnsafeIdError):
+        rule_drafts_store.delete_draft(2025, "../escape", data_dir=tmp_path)
+
+
+def test_path_traversal_blocked_in_approve(tmp_path: Path):
+    from app.services.rule_drafts_store import UnsafeIdError
+
+    with pytest.raises(UnsafeIdError):
+        rule_drafts_store.approve_draft(2025, "../escape", data_dir=tmp_path)
+
+
+def test_safe_id_allows_normal_chars(tmp_path: Path):
+    """평범한 rule_id 는 통과."""
+    rule = _make_card_rule(rule_id="card_25_threshold-v2")
+    rule_drafts_store.save_draft(_make_draft(rule), data_dir=tmp_path)
+    loaded = rule_drafts_store.load_draft(
+        2025, "card_25_threshold-v2", data_dir=tmp_path
+    )
+    assert loaded is not None
+
+
 def test_reject_deletes_draft(tmp_path: Path):
     rule_drafts_store.save_draft(_make_draft(_make_card_rule()), data_dir=tmp_path)
     assert rule_drafts_store.reject_draft(

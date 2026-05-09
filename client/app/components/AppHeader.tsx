@@ -29,42 +29,41 @@ export default function AppHeader({ step, totalSteps }: Props) {
           aria-label="susemi 홈"
           className="group flex items-center gap-2.5 outline-none"
         >
-          {/* 마크: slate-900 라운드 사각형 + 노랑 버블 클러스터 (수세미 모티프) */}
+          {/* 마크: slate-900 라운드 + 대각선 스크럽 스트로크 (수세미 = scrubbing 모티프) */}
           <span
-            className="relative inline-flex h-8 w-8 items-center justify-center rounded-[10px] bg-gradient-to-br from-slate-900 to-slate-800 shadow-[0_2px_6px_-2px_rgba(15,23,42,0.35),inset_0_1px_0_rgba(255,255,255,0.06)] ring-1 ring-slate-900/10 transition-transform duration-200 group-hover:-translate-y-0.5"
+            className="relative inline-flex h-8 w-8 items-center justify-center overflow-hidden rounded-[9px] bg-gradient-to-br from-slate-900 to-slate-800 shadow-[0_2px_8px_-2px_rgba(15,23,42,0.4),inset_0_1px_0_rgba(255,255,255,0.08)] ring-1 ring-slate-900/10 transition-transform duration-200 group-hover:-translate-y-0.5"
           >
             <svg
               viewBox="0 0 24 24"
               fill="none"
               aria-hidden="true"
-              className="h-4 w-4"
+              className="h-[22px] w-[22px]"
             >
-              {/* 큰 버블 */}
-              <circle cx="13.5" cy="13.5" r="3.6" fill="#FACC15" />
-              {/* 중간 버블 */}
-              <circle
-                cx="8"
-                cy="11"
-                r="1.9"
-                fill="#FACC15"
-                opacity="0.92"
+              {/* 메인 스트로크 — 굵고 진한 대각선 (스크럽 자국) */}
+              <path
+                d="M6 16 L16 6"
+                stroke="#FACC15"
+                strokeWidth="2.6"
+                strokeLinecap="round"
               />
-              {/* 작은 버블 */}
-              <circle
-                cx="16.5"
-                cy="7.5"
-                r="1.3"
-                fill="#FACC15"
-                opacity="0.75"
+              {/* 보조 스트로크 — 한 단계 얇음, 같은 각도 */}
+              <path
+                d="M9.5 18.5 L17.5 10.5"
+                stroke="#FACC15"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                opacity="0.62"
               />
-              {/* 큰 버블 하이라이트 */}
-              <circle
-                cx="12.3"
-                cy="12.2"
-                r="0.9"
-                fill="#FFFFFF"
-                opacity="0.55"
+              {/* 트레일 스트로크 — 얇고 흐림 (motion blur 느낌) */}
+              <path
+                d="M13 19 L18 14"
+                stroke="#FACC15"
+                strokeWidth="1.2"
+                strokeLinecap="round"
+                opacity="0.32"
               />
+              {/* 좌상단 미세 점 — 시작점 강조 */}
+              <circle cx="5" cy="17" r="0.9" fill="#FACC15" opacity="0.85" />
             </svg>
           </span>
 

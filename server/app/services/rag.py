@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Awaitable, Callable
@@ -75,11 +76,27 @@ def _rag_dir(data_dir: Path) -> Path:
     return data_dir.joinpath(*RAG_SUBDIR)
 
 
+# 디렉토리/파일명 component 화이트리스트 — path traversal 차단
+_SAFE_PATH_COMP_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
+
+
+def _safe_component(value: str, label: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{label} 는 비어있지 않은 문자열이어야 합니다.")
+    if not _SAFE_PATH_COMP_RE.match(value):
+        raise ValueError(
+            f"{label} 에 허용되지 않는 문자 포함: {value!r}. "
+            "영문/숫자/_/- 만 가능합니다."
+        )
+    return value
+
+
 def _pack_path(
     data_dir: Path, law_id: str, effective_date: str | None
 ) -> Path:
-    key = effective_date or "latest"
-    return _rag_dir(data_dir) / law_id / f"{key}.json"
+    safe_law = _safe_component(law_id, "law_id")
+    key = _safe_component(effective_date, "effective_date") if effective_date else "latest"
+    return _rag_dir(data_dir) / safe_law / f"{key}.json"
 
 
 # -------------------- cosine --------------------
@@ -243,28 +260,33 @@ async def search(
 ) -> tuple[list[SearchHit], int]:
     """
     자연어 query → top-K 매칭 청크 + 전체 인덱스 청크 수.
-    """
-    embed = embed_fn or _default_embed
-    qvecs = await embed([query])
-    if not qvecs:
-        return [], 0
-    qvec = qvecs[0]
 
+    필터 적용 후 후보가 0 개면 임베딩 호출 자체를 skip — 비용 + 안정성.
+    """
     packs = list_packs(data_dir)
     total = sum(len(p.chunks) for p in packs)
 
-    candidates: list[tuple[float, IndexedChunk]] = []
+    # 1) 필터링 먼저 (임베딩 비용 회피)
+    chunks_to_score: list[IndexedChunk] = []
     for pack in packs:
         if law_id_filter and pack.law_id != law_id_filter:
             continue
         for ch in pack.chunks:
             if article_no_filter and ch.article_no != article_no_filter:
                 continue
-            score = cosine(qvec, ch.embedding)
-            candidates.append((score, ch))
+            chunks_to_score.append(ch)
 
-    candidates.sort(key=lambda x: x[0], reverse=True)
-    hits = [
-        SearchHit(chunk=ch, score=s) for s, ch in candidates[: max(0, top_k)]
-    ]
+    if not chunks_to_score:
+        return [], total
+
+    # 2) 후보가 있을 때만 query 임베딩
+    embed = embed_fn or _default_embed
+    qvecs = await embed([query])
+    if not qvecs:
+        return [], total
+    qvec = qvecs[0]
+
+    scored = [(cosine(qvec, ch.embedding), ch) for ch in chunks_to_score]
+    scored.sort(key=lambda x: x[0], reverse=True)
+    hits = [SearchHit(chunk=ch, score=s) for s, ch in scored[: max(0, top_k)]]
     return hits, total

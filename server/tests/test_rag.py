@@ -256,6 +256,47 @@ async def test_search_empty_index_returns_nothing(tmp_path: Path):
     assert hits == []
 
 
+async def test_search_skips_embedding_when_index_empty(tmp_path: Path):
+    """빈 인덱스 → 임베딩 호출 자체를 skip (비용/안정성)."""
+    called = {"count": 0}
+
+    async def counting_embed(texts: list[str]) -> list[list[float]]:
+        called["count"] += 1
+        return [[1.0]] * len(texts)
+
+    hits, total = await rag.search(
+        "테스트", top_k=5, embed_fn=counting_embed, data_dir=tmp_path
+    )
+    assert total == 0
+    assert hits == []
+    assert called["count"] == 0
+
+
+async def test_search_skips_embedding_when_filter_eliminates_all(tmp_path: Path):
+    """필터로 모든 후보가 제거되면 임베딩 skip."""
+    law = _law()
+    embed = make_deterministic_embedder({"법": [1.0, 0.0]})
+    await rag.index_law(law, embed_fn=embed, data_dir=tmp_path)
+
+    called = {"count": 0}
+
+    async def counting_embed(texts: list[str]) -> list[list[float]]:
+        called["count"] += 1
+        return [[1.0, 0.0]] * len(texts)
+
+    # 매칭 안 되는 law_id 필터
+    hits, total = await rag.search(
+        "공제",
+        top_k=5,
+        law_id_filter="NO_SUCH_LAW",
+        embed_fn=counting_embed,
+        data_dir=tmp_path,
+    )
+    assert hits == []
+    assert total == 3  # 인덱스 자체엔 3 청크 있음
+    assert called["count"] == 0  # 필터로 다 빠져 임베딩 호출 안 함
+
+
 # -------------------- stats --------------------
 
 
@@ -272,6 +313,14 @@ async def test_get_stats(tmp_path: Path):
 
 
 # -------------------- 임베딩 개수 mismatch --------------------
+
+
+async def test_path_traversal_blocked_in_index(tmp_path: Path):
+    """law_id 에 ../ 포함 시 거부."""
+    bad_law = _law(law_id="../../escape", law_name="X")
+    embed = make_deterministic_embedder({"법": [1.0]})
+    with pytest.raises(ValueError):
+        await rag.index_law(bad_law, embed_fn=embed, data_dir=tmp_path)
 
 
 async def test_index_raises_on_embedding_count_mismatch(tmp_path: Path):

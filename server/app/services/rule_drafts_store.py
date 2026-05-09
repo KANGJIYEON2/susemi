@@ -15,6 +15,7 @@ server/app/data/rules/drafts/{year}/{rule_id}.json
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -26,17 +27,36 @@ DEFAULT_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 DRAFTS_SUBDIR = ("rules", "drafts")
 PUBLISHED_SUBDIR = ("rules",)
 
+# rule_id 는 영숫자 + _ + - 만 허용. path traversal 차단.
+_SAFE_ID_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
+
+
+class UnsafeIdError(ValueError):
+    """rule_id 가 path traversal 등 위험 문자를 포함."""
+
+
+def _validate_rule_id(rule_id: str) -> str:
+    if not isinstance(rule_id, str) or not rule_id:
+        raise UnsafeIdError("rule_id 는 비어있지 않은 문자열이어야 합니다.")
+    if not _SAFE_ID_RE.match(rule_id):
+        raise UnsafeIdError(
+            f"rule_id 에 허용되지 않는 문자 포함: {rule_id!r}. "
+            "영문/숫자/_/- 만 가능합니다."
+        )
+    return rule_id
+
 
 def _drafts_dir(data_dir: Path) -> Path:
     return data_dir.joinpath(*DRAFTS_SUBDIR)
 
 
 def _drafts_year_dir(data_dir: Path, year: int) -> Path:
-    return _drafts_dir(data_dir) / str(year)
+    return _drafts_dir(data_dir) / str(int(year))
 
 
 def _draft_path(data_dir: Path, year: int, rule_id: str) -> Path:
-    return _drafts_year_dir(data_dir, year) / f"{rule_id}.json"
+    rid = _validate_rule_id(rule_id)
+    return _drafts_year_dir(data_dir, year) / f"{rid}.json"
 
 
 def _published_path(data_dir: Path, year: int) -> Path:

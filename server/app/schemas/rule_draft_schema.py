@@ -68,11 +68,19 @@ class CompileRequest(BaseModel):
     law_text_override: str | None = None
 
     # 컴파일 타깃 메타
-    target_rule_id: str = Field(..., min_length=1)
-    target_title: str = Field(..., min_length=1)
-    target_anchor: str = Field(..., min_length=1)
+    target_rule_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=128,
+        pattern=r"^[A-Za-z0-9_\-]+$",
+        description="영문/숫자/_/- 만 허용 (path traversal 방어)",
+    )
+    target_title: str = Field(..., min_length=1, max_length=256)
+    target_anchor: str = Field(..., min_length=1, max_length=256)
     target_year: int = 2025
-    parent_rule_id: str | None = None
+    parent_rule_id: str | None = Field(
+        default=None, max_length=128, pattern=r"^[A-Za-z0-9_\-]+$"
+    )
 
 
 class CompileResponse(BaseModel):

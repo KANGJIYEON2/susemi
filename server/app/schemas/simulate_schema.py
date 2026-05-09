@@ -18,16 +18,16 @@ class YearOverride(BaseModel):
     """1개 연도에 적용할 변경. None 이면 이전 연도 값을 그대로 사용."""
 
     year: int = Field(..., description="대상 연도 (예: 2026)")
-    gross_salary: int | None = None
+    gross_salary: int | None = Field(default=None, ge=0)
     spouse: bool | None = None
-    dependents_count: int | None = None
-    senior_count: int | None = None
-    disabled_count: int | None = None
+    dependents_count: int | None = Field(default=None, ge=0)
+    senior_count: int | None = Field(default=None, ge=0)
+    disabled_count: int | None = Field(default=None, ge=0)
     female_householder: bool | None = None
     single_parent: bool | None = None
-    extra_income_deductions: int | None = None
-    extra_tax_credits: int | None = None
-    prepaid_tax: int | None = None
+    extra_income_deductions: int | None = Field(default=None, ge=0)
+    extra_tax_credits: int | None = Field(default=None, ge=0)
+    prepaid_tax: int | None = Field(default=None, ge=0)
     note: str | None = Field(default=None, description="연도 라벨 (예: '결혼 + 자녀 출생')")
 
 

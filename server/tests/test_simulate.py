@@ -182,6 +182,20 @@ def test_baseline_prepaid_tax_used():
 # -------------------- 외부 공제 합산 적용 --------------------
 
 
+def test_negative_gross_salary_rejected_at_schema():
+    """잘못된 입력은 산식 단에서 0 처리되기 전에 schema 가 거부."""
+    import pytest
+    from pydantic import ValidationError
+    from app.schemas.simulate_schema import YearOverride
+
+    with pytest.raises(ValidationError):
+        YearOverride(year=2026, gross_salary=-1)
+    with pytest.raises(ValidationError):
+        YearOverride(year=2026, prepaid_tax=-100)
+    with pytest.raises(ValidationError):
+        YearOverride(year=2026, dependents_count=-1)
+
+
 def test_extra_deductions_applied_to_baseline():
     req = SimulateRequest(
         baseline_request=_baseline_request(50_000_000),
