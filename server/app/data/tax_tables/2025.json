@@ -1,0 +1,74 @@
+{
+  "year": 2025,
+  "currency_unit": "원 (정수, 부동소수점 회피)",
+  "_note": "2025년 귀속 (2026 초 정산) 기준. 실제 적용 전 국세청 모의계산기와 골든셋 동치성 재확인 필요.",
+  "legal_anchors": {
+    "earned_income_deduction": "소득세법 §47",
+    "progressive_tax": "소득세법 §55",
+    "basic_personal_deduction": "소득세법 §50",
+    "additional_personal_deduction": "소득세법 §51",
+    "earned_income_tax_credit": "소득세법 §59",
+    "standard_tax_credit": "소득세법 §59의4 ⑤",
+    "local_income_tax": "지방세법 §103의3"
+  },
+  "earned_income_deduction": {
+    "_desc": "근로소득공제. 총급여 구간별 (정액 + 초과분 비율). 한도 2,000만원.",
+    "brackets": [
+      { "upper": 5000000, "fixed": 0, "rate": 0.70, "base": 0 },
+      { "upper": 15000000, "fixed": 3500000, "rate": 0.40, "base": 5000000 },
+      { "upper": 45000000, "fixed": 7500000, "rate": 0.15, "base": 15000000 },
+      { "upper": 100000000, "fixed": 12000000, "rate": 0.05, "base": 45000000 },
+      { "upper": null, "fixed": 14750000, "rate": 0.02, "base": 100000000 }
+    ],
+    "cap": 20000000
+  },
+  "progressive_tax": {
+    "_desc": "종합소득세율. 과세표준 구간별 (정액 + 초과분 비율).",
+    "brackets": [
+      { "upper": 14000000, "fixed": 0, "rate": 0.06, "base": 0 },
+      { "upper": 50000000, "fixed": 840000, "rate": 0.15, "base": 14000000 },
+      { "upper": 88000000, "fixed": 6240000, "rate": 0.24, "base": 50000000 },
+      { "upper": 150000000, "fixed": 15360000, "rate": 0.35, "base": 88000000 },
+      { "upper": 300000000, "fixed": 37060000, "rate": 0.38, "base": 150000000 },
+      { "upper": 500000000, "fixed": 94060000, "rate": 0.40, "base": 300000000 },
+      { "upper": 1000000000, "fixed": 174060000, "rate": 0.42, "base": 500000000 },
+      { "upper": null, "fixed": 384060000, "rate": 0.45, "base": 1000000000 }
+    ]
+  },
+  "personal_deduction": {
+    "_desc": "기본 + 추가 인적공제. 소득요건/나이요건은 호출자가 사전에 필터한 인원수만 전달.",
+    "basic": {
+      "self": 1500000,
+      "spouse": 1500000,
+      "dependent": 1500000
+    },
+    "additional": {
+      "senior": 1000000,
+      "disabled": 2000000,
+      "female_householder": 500000,
+      "single_parent": 1000000
+    },
+    "_note": "한부모와 부녀자는 중복 적용 불가 — 호출 측에서 single_parent 우선 적용 후 female_householder 무효화."
+  },
+  "earned_income_tax_credit": {
+    "_desc": "근로소득세액공제. 산출세액 기준 비율 + 총급여 기준 한도.",
+    "rate_brackets": [
+      { "upper_calculated_tax": 1300000, "fixed": 0, "rate": 0.55, "base": 0 },
+      { "upper_calculated_tax": null, "fixed": 715000, "rate": 0.30, "base": 1300000 }
+    ],
+    "cap_by_gross": [
+      { "upper_gross": 33000000, "cap": 740000, "_formula": "고정 740,000" },
+      { "upper_gross": 70000000, "cap_max": 740000, "cap_min": 660000, "deduct_per_excess": 0.008, "excess_base": 33000000, "_formula": "740,000 - (총급여-33M)*0.008, min 660,000" },
+      { "upper_gross": 120000000, "cap_max": 660000, "cap_min": 500000, "deduct_per_excess": 0.005, "excess_base": 70000000, "_formula": "660,000 - (총급여-70M)*0.005, min 500,000" },
+      { "upper_gross": null, "cap_max": 500000, "cap_min": 200000, "deduct_per_excess": 0.005, "excess_base": 120000000, "_formula": "500,000 - (총급여-120M)*0.005, min 200,000" }
+    ]
+  },
+  "standard_tax_credit": {
+    "_desc": "특별세액공제 미선택 시 일괄 13만원.",
+    "amount": 130000
+  },
+  "local_income_tax": {
+    "_desc": "지방소득세 = 결정세액(국세) × 10%.",
+    "rate": 0.10
+  }
+}

@@ -11,9 +11,15 @@ from app.schemas.pdf_schema import ParsedPdfData
 
 load_dotenv()
 
-client = AsyncOpenAI(
-    api_key=os.getenv("OPENAI_API_KEY")
-)
+# Lazy init — 테스트 환경에서 모듈 로드 시점 OPENAI_API_KEY 미설정 회피.
+_client: AsyncOpenAI | None = None
+
+
+def _get_client() -> AsyncOpenAI:
+    global _client
+    if _client is None:
+        _client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    return _client
 
 
 async def _extract_pdf_text(file_bytes: bytes) -> str:
@@ -90,7 +96,7 @@ async def _call_llm_for_pdf(pdf_text: str) -> dict:
 - 숫자는 정수만 사용하라. None 이나 문자열 "0" 은 쓰지 마라.
 """
 
-    resp = await client.chat.completions.create(
+    resp = await _get_client().chat.completions.create(
         model="gpt-4.1-mini",
         messages=[
             {"role": "system", "content": system_prompt.strip()},

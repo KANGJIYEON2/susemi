@@ -1,0 +1,90 @@
+{
+  "year": 2025,
+  "rules": [
+    {
+      "rule_id": "card_25_threshold",
+      "title": "신용카드 등 사용액 공제 최저사용액 요건",
+      "year": 2025,
+      "legal_anchor": "조세특례제한법 §126의2 ①",
+      "legal_text_hash": null,
+      "source_api_id": null,
+      "human_reviewed": true,
+      "confidence": 1.0,
+      "compiled_at": "2026-05-09",
+      "compiled_by": "manual",
+      "evaluator": {
+        "kind": "threshold",
+        "threshold": {
+          "type": "ratio_of_field",
+          "field": "total_salary",
+          "ratio": 0.25
+        },
+        "value": {
+          "type": "sum_of_fields",
+          "fields": ["credit_card", "debit_card", "cash_receipt"]
+        },
+        "comparison": "gte",
+        "outputs": {
+          "threshold_key": "card_threshold_25",
+          "value_key": "card_total_usage",
+          "result_key": "card_meets_threshold"
+        }
+      }
+    },
+    {
+      "rule_id": "medical_3_threshold",
+      "title": "의료비 세액공제 최저사용액 요건",
+      "year": 2025,
+      "legal_anchor": "소득세법 §59의4 ②",
+      "legal_text_hash": null,
+      "source_api_id": null,
+      "human_reviewed": true,
+      "confidence": 1.0,
+      "compiled_at": "2026-05-09",
+      "compiled_by": "manual",
+      "evaluator": {
+        "kind": "threshold",
+        "threshold": {
+          "type": "ratio_of_field",
+          "field": "total_salary",
+          "ratio": 0.03
+        },
+        "value": {
+          "type": "sum_of_fields",
+          "fields": [
+            "medical_expense",
+            "infertility_treatment_expense",
+            "assistive_devices_expense",
+            "childbirth_care_expense",
+            "family_medical_total"
+          ]
+        },
+        "comparison": "gt",
+        "outputs": {
+          "threshold_key": "medical_threshold_3",
+          "value_key": "medical_total",
+          "result_key": "medical_meets_threshold"
+        }
+      }
+    },
+    {
+      "rule_id": "rent_eligibility",
+      "title": "월세액 세액공제 인적·주거 요건",
+      "year": 2025,
+      "legal_anchor": "조세특례제한법 §95의2 ①",
+      "legal_text_hash": null,
+      "source_api_id": null,
+      "human_reviewed": true,
+      "confidence": 1.0,
+      "compiled_at": "2026-05-09",
+      "compiled_by": "manual",
+      "evaluator": {
+        "kind": "all_of_flags",
+        "flags": ["householder", "no_house", "lease_contract"],
+        "outputs": {
+          "result_key": "rent_conditions_met"
+        }
+      }
+    }
+  ]
+}

@@ -87,17 +87,30 @@ export type Summary = {
   key_points: string[];
 };
 
+export type RuleEvaluation = {
+  rule_id: string;
+  title: string;
+  legal_anchor: string;
+  legal_text_hash: string | null;
+  computed: Record<string, number | boolean | string | null>;
+  result: boolean | null;
+  formula: string | null;
+};
+
 export type Section = {
   id: string;
   title: string;
   highlight: string;
   detail: string;
-  evidence: string | Record<string, unknown> | null;
   tips: string[];
+  /** Phase 3-1: 백엔드가 부착한 룰 평가 근거 (legal_anchor + computed) */
+  provenance: RuleEvaluation[];
 };
 
 export type AnalyzeResponse = {
   summary: Summary;
   sections: Section[];
   tax_tips: string[];
+  /** 모든 룰 평가 결과 (UI 가 [rule_id] anchor 를 lookup 할 때 사용) */
+  evaluations: RuleEvaluation[];
 };

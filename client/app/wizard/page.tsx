@@ -13,6 +13,7 @@ import AppHeader from "@/app/components/AppHeader";
 import ReportLayout from "@/app/components/report/ReportLayout";
 
 import { analyzeTax, parsePdf } from "@/app/lib/api";
+import { saveAnalysis, type StoredAnalysis } from "@/app/lib/storage";
 import type {
   AnalyzeResponse,
   Conditions,
@@ -141,6 +142,15 @@ export default function WizardPage() {
       const res = await analyzeTax(payload);
       setResult(res);
       goStep(4);
+
+      // 클라이언트 IndexedDB 에 자동 저장 (fire-and-forget — 실패해도 분석 흐름 영향 X)
+      saveAnalysis({
+        year: 2025,
+        inputs: payload,
+        result: res,
+      }).catch(() => {
+        /* 저장 실패는 무시 (private browsing / quota / SSR 등) */
+      });
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : "분석 중 오류가 발생했어요.";
@@ -148,6 +158,19 @@ export default function WizardPage() {
     } finally {
       setLoadingAnalyze(false);
     }
+  };
+
+  // 저장된 과거 분석을 불러와 결과 페이지로 이동
+  const handleResume = (loaded: StoredAnalysis) => {
+    setIncome(loaded.inputs.income);
+    setDependents(loaded.inputs.dependents);
+    setConditions(loaded.inputs.conditions);
+    setParsedPdf(loaded.inputs.parsed_pdf);
+    setManualInput(loaded.inputs.manual_input);
+    setResult(loaded.result);
+    setAnalyzeError(null);
+    setPdfMissingFields([]);
+    goStep(4);
   };
 
   const restart = () => {
@@ -177,7 +200,9 @@ export default function WizardPage() {
           }`}
         >
           <div className="mx-auto w-full max-w-[560px] px-5">
-            {step === 0 && <IntroStep onStart={() => goStep(1)} />}
+            {step === 0 && (
+            <IntroStep onStart={() => goStep(1)} onResume={handleResume} />
+          )}
 
             {step === 1 && (
               <IncomeStep
