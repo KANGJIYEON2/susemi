@@ -9,8 +9,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routers import (
     admin_rules,
     analyze,
+    dependencies,
     manual_input,
     pdf_parse,
+    rag,
+    recommend,
+    simulate,
     user_input,
     verify,
 )
@@ -44,6 +48,10 @@ app.include_router(manual_input.router, prefix="/api/v1", tags=["manual-input"])
 app.include_router(analyze.router, prefix="/api/v1", tags=["analyze"])
 app.include_router(admin_rules.router, prefix="/api/v1", tags=["admin-rules"])
 app.include_router(verify.router, prefix="/api/v1", tags=["verify"])
+app.include_router(simulate.router, prefix="/api/v1", tags=["simulate"])
+app.include_router(rag.router, prefix="/api/v1", tags=["rag"])
+app.include_router(recommend.router, prefix="/api/v1", tags=["recommend"])
+app.include_router(dependencies.router, prefix="/api/v1", tags=["ripple"])
 
 
 @app.get("/")

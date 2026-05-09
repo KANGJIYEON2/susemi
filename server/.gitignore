@@ -39,6 +39,11 @@ app/data/legal_cache/**
 !app/data/legal_cache/
 !app/data/legal_cache/.gitkeep
 
+#  RAG 인덱스 (임베딩 — 파생 데이터)
+app/data/rag_index/**
+!app/data/rag_index/
+!app/data/rag_index/.gitkeep
+
 #  OS 자동파일
 .DS_Store
 Thumbs.db

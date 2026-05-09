@@ -4,6 +4,8 @@ import Image from "next/image";
 import { CheckCircle2, RotateCcw } from "lucide-react";
 import Button from "@/app/components/ui/Button";
 import type { AnalyzeRequest } from "@/app/lib/types";
+import RecommendSection from "./RecommendSection";
+import SimulateSection from "./SimulateSection";
 import VerifySection from "./VerifySection";
 
 interface Props {
@@ -60,6 +62,12 @@ export default function ResultStep({ restart, inputs }: Props) {
 
       {/* Phase 3-3: 회사 신고 결과와 비교 */}
       <VerifySection inputs={inputs} />
+
+      {/* Phase 4-3: What-if 추천 */}
+      <RecommendSection inputs={inputs} />
+
+      {/* Phase 4-1: 5년 시뮬레이션 */}
+      <SimulateSection inputs={inputs} />
 
       <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[12px] leading-relaxed text-slate-600">
         모바일에서는 아래 리포트 영역을 위로 스크롤해 보세요.

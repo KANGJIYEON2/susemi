@@ -160,3 +160,116 @@ export type VerifyRequest = {
   extra_income_deductions?: number;
   extra_tax_credits?: number;
 };
+
+/* -------------------- Phase 4-1: 시뮬레이션 -------------------- */
+
+export type YearOverride = {
+  year: number;
+  gross_salary?: number | null;
+  spouse?: boolean | null;
+  dependents_count?: number | null;
+  senior_count?: number | null;
+  disabled_count?: number | null;
+  female_householder?: boolean | null;
+  single_parent?: boolean | null;
+  extra_income_deductions?: number | null;
+  extra_tax_credits?: number | null;
+  prepaid_tax?: number | null;
+  note?: string | null;
+};
+
+export type SimulateRequest = {
+  baseline_request: AnalyzeRequest;
+  baseline_year?: number;
+  baseline_prepaid_tax?: number;
+  use_standard_tax_credit?: boolean;
+  extra_income_deductions?: number;
+  extra_tax_credits?: number;
+  years: YearOverride[];
+};
+
+/** tax_calculator 의 CalcResult 와 1:1 (필요한 필드만) */
+export type CalcResultDTO = {
+  earned_income_deduction: number;
+  earned_income_amount: number;
+  personal_deduction: number;
+  taxable_income: number;
+  calculated_tax: number;
+  earned_income_tax_credit: number;
+  standard_tax_credit: number;
+  extra_tax_credits: number;
+  determined_tax: number;
+  local_income_tax: number;
+  total_tax: number;
+  prepaid_tax: number;
+  refund_or_owed: number;
+  year: number;
+  steps: Array<Record<string, unknown>>;
+};
+
+export type CalcInputsDTO = {
+  gross_salary: number;
+  non_taxable: number;
+  dependents: {
+    self_eligible: boolean;
+    spouse: boolean;
+    dependents_count: number;
+    senior_count: number;
+    disabled_count: number;
+    female_householder: boolean;
+    single_parent: boolean;
+  };
+  extra_income_deductions: number;
+  extra_tax_credits: number;
+  use_standard_tax_credit: boolean;
+  prepaid_tax: number;
+};
+
+export type YearProjection = {
+  year: number;
+  note: string | null;
+  inputs_used: CalcInputsDTO;
+  result: CalcResultDTO;
+};
+
+export type SimulateResponse = {
+  baseline_year: number;
+  baseline: YearProjection;
+  projections: YearProjection[];
+  cumulative_refund: number;
+  cumulative_total_tax: number;
+};
+
+/* -------------------- Phase 4-3: 추천 -------------------- */
+
+export type LeverDTO = {
+  lever_id: string;
+  label: string;
+  description: string;
+  legal_anchor: string;
+  cost_label: string;
+  kind: "tax_credit" | "income_deduction";
+};
+
+export type RecommendationDTO = {
+  lever: LeverDTO;
+  eligible: boolean;
+  note: string | null;
+  baseline_refund: number;
+  projected_refund: number;
+  refund_delta: number;
+};
+
+export type RecommendRequest = {
+  request: AnalyzeRequest;
+  baseline_prepaid_tax?: number;
+  baseline_extra_income_deductions?: number;
+  baseline_extra_tax_credits?: number;
+  use_standard_tax_credit?: boolean;
+};
+
+export type RecommendResponse = {
+  baseline_refund: number;
+  baseline_total_tax: number;
+  recommendations: RecommendationDTO[];
+};
