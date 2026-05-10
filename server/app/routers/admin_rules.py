@@ -11,11 +11,9 @@ admin: 룰 컴파일 + 검수 큐.
 주의: 1차 구현은 인증 없음. 운영 배포 전 admin 인증 필수.
 """
 
-from __future__ import annotations
-
 import os
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 
 from app.rate_limit import LIMIT_LLM_ADMIN, limiter
 from app.schemas.rule_draft_schema import (
@@ -91,7 +89,12 @@ async def _fetch_law_text(req: CompileRequest) -> tuple[str, str | None, str | N
 
 @router.post("/admin/rules/compile", response_model=CompileResponse)
 @limiter.limit(LIMIT_LLM_ADMIN)
-async def compile_endpoint(request: Request, req: CompileRequest):
+async def compile_endpoint(
+    request: Request,
+    payload: CompileRequest = Body(...),
+):
+    # 명시적 Body(...) — slowapi 데코레이터 + FastAPI 본문 추론 충돌 회피
+    req = payload
     law_text, legal_text_hash, source_api_id = await _fetch_law_text(req)
 
     if not law_text or len(law_text.strip()) < 20:

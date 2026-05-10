@@ -8,11 +8,9 @@ Phase 4-2 RAG 엔드포인트.
 주의: 1차는 admin 인증 없음. 운영 배포 전 가드 필수.
 """
 
-from __future__ import annotations
-
 import os
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
 from app.rate_limit import LIMIT_EMBEDDING, LIMIT_INDEX, limiter
 from app.schemas.rag_schema import (
@@ -33,7 +31,12 @@ router = APIRouter(dependencies=[Depends(require_admin_token)])
 
 @router.post("/rag/index", response_model=IndexLawResponse)
 @limiter.limit(LIMIT_INDEX)
-async def index_endpoint(request: Request, req: IndexLawRequest):
+async def index_endpoint(
+    request: Request,
+    payload: IndexLawRequest = Body(...),
+):
+    # 명시적 Body(...) — slowapi 데코레이터 + FastAPI 본문 추론 충돌 회피
+    req = payload
     if not (req.law_id or req.law_mst):
         raise HTTPException(
             status_code=400,
@@ -80,7 +83,11 @@ async def index_endpoint(request: Request, req: IndexLawRequest):
 
 @router.post("/rag/search", response_model=SearchResponse)
 @limiter.limit(LIMIT_EMBEDDING)
-async def search_endpoint(request: Request, req: SearchRequest):
+async def search_endpoint(
+    request: Request,
+    payload: SearchRequest = Body(...),
+):
+    req = payload
     try:
         hits, total = await rag.search(
             req.query,
