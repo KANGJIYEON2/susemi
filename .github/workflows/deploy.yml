@@ -1,34 +1,71 @@
 name: Deploy to EC2
 
+# CI 가 main 브랜치에서 성공한 직후에만 deploy.
+# (push 직접 트리거 안 함 — 테스트 깨진 코드가 배포되는 사고 방지)
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
     branches: ["main"]
+    types: ["completed"]
+  workflow_dispatch:
+    # 수동 trigger 도 허용 — 인프라 변경 후 강제 재배포 등
+
+concurrency:
+  group: deploy-ec2
+  cancel-in-progress: false
 
 jobs:
   deploy:
+    name: docker compose up -d on EC2
     runs-on: ubuntu-latest
+    # workflow_run 의 경우 conclusion 검사. workflow_dispatch 는 통과.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout (deploy 자체엔 코드 필요 없지만 future-proofing)
+        uses: actions/checkout@v4
 
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-
-          echo "${{ secrets.EC2_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
-          sed -i '1s/^\xEF\xBB\xBF//' ~/.ssh/id_rsa
-          sed -i '${/^$/d;}' ~/.ssh/id_rsa
-
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy to EC2
+      - name: Deploy (git pull + docker compose up)
+        env:
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "
-            cd ~/susemi/server &&
-            git pull &&
-            source venv/bin/activate &&
-            pip install -r requirements.txt &&
-            pkill gunicorn || true &&
-            gunicorn -k uvicorn.workers.UvicornWorker server.main:app --bind 0.0.0.0:8000 --daemon
-          "
+          ssh "$EC2_USER@$EC2_HOST" bash <<'REMOTE'
+            set -euo pipefail
+
+            cd ~/susemi
+
+            echo "==> git pull"
+            git fetch --prune
+            git reset --hard origin/main
+
+            echo "==> docker compose up -d --build"
+            # .env 파일은 EC2 에 사전 배치 (시크릿). 없으면 명시적으로 실패.
+            if [ ! -f .env ]; then
+              echo "ERROR: ~/susemi/.env not found. 운영자가 SSH 로 한 번 작성해야 합니다." >&2
+              exit 1
+            fi
+
+            docker compose pull caddy || true
+            docker compose up -d --build --remove-orphans
+
+            echo "==> 정리: 안 쓰는 이미지 삭제 (캐시는 유지)"
+            docker image prune -f
+
+            echo "==> 헬스체크 (server 컨테이너)"
+            sleep 3
+            docker compose ps
+          REMOTE
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/id_rsa
