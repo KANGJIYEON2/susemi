@@ -1,0 +1,36 @@
+{
+  "name": "30M 단신",
+  "source": "hand_calculated",
+  "calibrated_at": null,
+  "notes": "test_golden_single_30M 와 동일 시나리오. 국세청 모의계산기로 검증 필요.",
+  "inputs": {
+    "gross_salary": 30000000,
+    "non_taxable": 0,
+    "dependents": {
+      "self_eligible": true,
+      "spouse": false,
+      "dependents_count": 0,
+      "senior_count": 0,
+      "disabled_count": 0,
+      "female_householder": false,
+      "single_parent": false
+    },
+    "extra_income_deductions": 0,
+    "extra_tax_credits": 0,
+    "use_standard_tax_credit": true,
+    "prepaid_tax": 1000000
+  },
+  "expected": {
+    "earned_income_deduction": 9750000,
+    "earned_income_amount": 20250000,
+    "personal_deduction": 1500000,
+    "taxable_income": 18750000,
+    "calculated_tax": 1552500,
+    "earned_income_tax_credit": 740000,
+    "standard_tax_credit": 130000,
+    "determined_tax": 682500,
+    "local_income_tax": 68250,
+    "total_tax": 750750,
+    "refund_or_owed": 249250
+  }
+}

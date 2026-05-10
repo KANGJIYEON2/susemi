@@ -1,0 +1,35 @@
+{
+  "name": "50M 배우자+자녀1",
+  "source": "hand_calculated",
+  "calibrated_at": null,
+  "notes": "test_golden_family_50M 와 동일. 4500~1억 구간 5% + 33M~70M cap 검증.",
+  "inputs": {
+    "gross_salary": 50000000,
+    "non_taxable": 0,
+    "dependents": {
+      "self_eligible": true,
+      "spouse": true,
+      "dependents_count": 1,
+      "senior_count": 0,
+      "disabled_count": 0,
+      "female_householder": false,
+      "single_parent": false
+    },
+    "extra_income_deductions": 0,
+    "extra_tax_credits": 0,
+    "use_standard_tax_credit": true,
+    "prepaid_tax": 2000000
+  },
+  "expected": {
+    "earned_income_deduction": 12250000,
+    "earned_income_amount": 37750000,
+    "personal_deduction": 4500000,
+    "taxable_income": 33250000,
+    "calculated_tax": 3727500,
+    "earned_income_tax_credit": 660000,
+    "determined_tax": 2937500,
+    "local_income_tax": 293750,
+    "total_tax": 3231250,
+    "refund_or_owed": -1231250
+  }
+}

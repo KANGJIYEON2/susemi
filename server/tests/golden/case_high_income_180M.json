@@ -1,0 +1,35 @@
+{
+  "name": "180M 고소득 — 38% 구간 + 가족4인",
+  "source": "hand_calculated",
+  "calibrated_at": null,
+  "notes": "test_golden_high_income_180M_family_38pct_bracket 와 동일. 1.5억~3억 38% 구간 + eitc 한도 cap 200,000.",
+  "inputs": {
+    "gross_salary": 180000000,
+    "non_taxable": 0,
+    "dependents": {
+      "self_eligible": true,
+      "spouse": true,
+      "dependents_count": 2,
+      "senior_count": 0,
+      "disabled_count": 0,
+      "female_householder": false,
+      "single_parent": false
+    },
+    "extra_income_deductions": 0,
+    "extra_tax_credits": 0,
+    "use_standard_tax_credit": true,
+    "prepaid_tax": 30000000
+  },
+  "expected": {
+    "earned_income_deduction": 16350000,
+    "earned_income_amount": 163650000,
+    "personal_deduction": 6000000,
+    "taxable_income": 157650000,
+    "calculated_tax": 39967000,
+    "earned_income_tax_credit": 200000,
+    "determined_tax": 39637000,
+    "local_income_tax": 3963700,
+    "total_tax": 43600700,
+    "refund_or_owed": -13600700
+  }
+}

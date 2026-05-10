@@ -30,6 +30,7 @@ from app.schemas.tax_calculator_schema import (
     CalcResult,
     CalcStep,
     DependentsInput,
+    ItemizedDeductions,
 )
 
 DEFAULT_TABLE_PATH = (
@@ -175,6 +176,140 @@ def _cap_for_gross(gross_salary: int, cap_brackets: list[dict[str, Any]]) -> int
     raise ValueError("근로세액공제 한도 구간 매칭 실패")
 
 
+# ---------------- Tier 3-3: 항목별 정밀 산식 ----------------
+
+
+def _child_tax_credit(
+    child_count: int, newborn_count: int, table: dict[str, Any]
+) -> int:
+    """
+    자녀세액공제 (소득세법 §59의2).
+    - 1명: 15만, 2명: 30만, 3명 이상: 30만 + (n-2) × 30만
+    - 출산·입양: 첫째 30만 / 둘째 50만 / 셋째 이상 70만
+    """
+    cfg = table["itemized"]["child_tax_credit"]
+    out = 0
+
+    if child_count >= 1:
+        out += cfg["first_or_second_per_child"]
+    if child_count >= 2:
+        out += cfg["first_or_second_per_child"]
+    if child_count >= 3:
+        out += (child_count - 2) * cfg["additional_per_child"]
+
+    nb = cfg["newborn"]
+    for n in range(1, newborn_count + 1):
+        if n == 1:
+            out += nb["first"]
+        elif n == 2:
+            out += nb["second"]
+        else:
+            out += nb["third_or_more"]
+
+    return out
+
+
+def _medical_credit(
+    items: ItemizedDeductions, gross_salary: int, table: dict[str, Any]
+) -> int:
+    """
+    의료비 세액공제 (소득세법 §59의4 ②).
+    v0 단순화: 모든 의료비를 합쳐 임계값(총급여 3%) 차감 후 15% 적용.
+    - 일반 부양가족 의료비는 700만 한도 적용
+    - 난임/미숙아 차등 비율은 v1 (현재 모두 15%)
+    """
+    cfg = table["itemized"]["medical_credit"]
+    threshold = int(gross_salary * cfg["threshold_pct_of_gross"])
+    cap_general = cfg["general_dependents_cap"]
+
+    capped_general = min(items.medical_general, cap_general)
+    total = (
+        items.medical_self_etc
+        + capped_general
+        + items.medical_infertility
+        + items.medical_preemie
+    )
+
+    excess = max(0, total - threshold)
+    if excess <= 0:
+        return 0
+
+    return int(round(excess * cfg["rate"]))
+
+
+def _donation_credit(
+    items: ItemizedDeductions,
+    earned_income_amount: int,
+    table: dict[str, Any],
+) -> int:
+    """
+    기부금 세액공제 (조세특례제한법 §76 / 소득세법 §59의4 ④).
+    - 정치자금: 10만 이하 100%, 10만~3000만 15%, 3000만 초과 25%
+    - 일반(법정+지정): 1000만 이하 15%, 초과분 30%. 한도 근로소득금액 × 30%.
+    """
+    cfg = table["itemized"]["donation_credit"]
+    pol_cfg = cfg["political"]
+    gen_cfg = cfg["general"]
+
+    out = 0
+
+    # 정치자금
+    p = items.donation_political
+    if p > 0:
+        low = pol_cfg["low_threshold"]
+        mid = pol_cfg["mid_threshold"]
+        if p <= low:
+            out += int(round(p * pol_cfg["low_rate"]))
+        elif p <= mid:
+            out += int(round(low * pol_cfg["low_rate"]))
+            out += int(round((p - low) * pol_cfg["mid_rate"]))
+        else:
+            out += int(round(low * pol_cfg["low_rate"]))
+            out += int(round((mid - low) * pol_cfg["mid_rate"]))
+            out += int(round((p - mid) * pol_cfg["high_rate"]))
+
+    # 일반 (법정/지정 모두 — 한도 근로소득금액 × 30%)
+    g = items.donation_general
+    if g > 0:
+        cap = int(earned_income_amount * gen_cfg["cap_pct_of_earned_income"])
+        capped = min(g, cap)
+        high_th = gen_cfg["high_threshold"]
+        if capped <= high_th:
+            out += int(round(capped * gen_cfg["rate_low"]))
+        else:
+            out += int(round(high_th * gen_cfg["rate_low"]))
+            out += int(round((capped - high_th) * gen_cfg["rate_high"]))
+
+    return out
+
+
+def compute_itemized(
+    items: ItemizedDeductions,
+    *,
+    gross_salary: int,
+    earned_income_amount: int,
+    table: dict[str, Any],
+) -> tuple[int, dict[str, int]]:
+    """ItemizedDeductions → 총 세액공제 + 항목별 breakdown."""
+    breakdown: dict[str, int] = {}
+
+    child = _child_tax_credit(
+        items.child_count_under_20, items.newborn_count, table
+    )
+    if child:
+        breakdown["child_tax_credit"] = child
+
+    medical = _medical_credit(items, gross_salary, table)
+    if medical:
+        breakdown["medical_credit"] = medical
+
+    donation = _donation_credit(items, earned_income_amount, table)
+    if donation:
+        breakdown["donation_credit"] = donation
+
+    return sum(breakdown.values()), breakdown
+
+
 # ---------------- 통합 함수 ----------------
 
 
@@ -294,23 +429,43 @@ def calculate(
         )
     )
 
-    # 7) 외부 세액공제 (자녀/의료비/기부금 등 — Phase 2-2 에서 정밀화)
-    if inputs.extra_tax_credits:
+    # 7) 외부 세액공제 — itemized 우선, 없으면 extra_tax_credits 합산값
+    itemized_breakdown: dict[str, int] = {}
+    if inputs.itemized is not None:
+        effective_extra, itemized_breakdown = compute_itemized(
+            inputs.itemized,
+            gross_salary=inputs.gross_salary,
+            earned_income_amount=earned_income_amount,
+            table=table,
+        )
         steps.append(
             CalcStep(
-                name="extra_tax_credits",
-                label="기타 세액공제 (외부 합산)",
-                legal_anchor=None,
-                formula="외부에서 합산해 전달된 값을 그대로 차감",
-                inputs={"amount": inputs.extra_tax_credits},
-                output=inputs.extra_tax_credits,
+                name="itemized_tax_credits",
+                label="기타 세액공제 (항목별)",
+                legal_anchor="소득세법 §59의2 / §59의4",
+                formula="자녀 + 의료비 + 기부금 (각 한도/비율 적용)",
+                inputs={"breakdown": itemized_breakdown},
+                output=effective_extra,
             )
         )
+    else:
+        effective_extra = inputs.extra_tax_credits
+        if effective_extra:
+            steps.append(
+                CalcStep(
+                    name="extra_tax_credits",
+                    label="기타 세액공제 (외부 합산)",
+                    legal_anchor=None,
+                    formula="외부에서 합산해 전달된 값을 그대로 차감",
+                    inputs={"amount": effective_extra},
+                    output=effective_extra,
+                )
+            )
 
     # 8) 결정세액 (국세분)
     determined_tax = max(
         0,
-        calculated_tax - eitc - standard_credit - inputs.extra_tax_credits,
+        calculated_tax - eitc - standard_credit - effective_extra,
     )
     steps.append(
         CalcStep(
@@ -322,7 +477,7 @@ def calculate(
                 "calculated_tax": calculated_tax,
                 "earned_income_tax_credit": eitc,
                 "standard_tax_credit": standard_credit,
-                "extra_tax_credits": inputs.extra_tax_credits,
+                "extra_tax_credits": effective_extra,
             },
             output=determined_tax,
         )
@@ -366,12 +521,13 @@ def calculate(
         calculated_tax=calculated_tax,
         earned_income_tax_credit=eitc,
         standard_tax_credit=standard_credit,
-        extra_tax_credits=inputs.extra_tax_credits,
+        extra_tax_credits=effective_extra,
         determined_tax=determined_tax,
         local_income_tax=local_tax,
         total_tax=total_tax,
         prepaid_tax=inputs.prepaid_tax,
         refund_or_owed=refund,
+        itemized_breakdown=itemized_breakdown,
         steps=steps,
         year=table.get("year", year),
     )

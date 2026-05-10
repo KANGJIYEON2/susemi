@@ -9,9 +9,17 @@ tax_calculator 의 단위 + 골든셋 테스트.
 
 import pytest
 
-from app.schemas.tax_calculator_schema import CalcInputs, DependentsInput
+from app.schemas.tax_calculator_schema import (
+    CalcInputs,
+    DependentsInput,
+    ItemizedDeductions,
+)
 from app.services.tax_calculator import (
+    _child_tax_credit,
+    _donation_credit,
+    _medical_credit,
     calculate,
+    compute_itemized,
     earned_income_deduction,
     earned_income_tax_credit,
     load_tax_table,
@@ -513,6 +521,187 @@ def test_golden_executive_500M_40pct_bracket():
     assert r.determined_tax == 165_130_000
     assert r.local_income_tax == 16_513_000
     assert r.refund_or_owed == -81_643_000
+
+
+# ============================================================
+# Tier 3-3: 항목별 정밀 산식 (ItemizedDeductions)
+# ============================================================
+
+
+# ---------- _child_tax_credit ----------
+
+
+@pytest.mark.parametrize(
+    "child,expected,desc",
+    [
+        (0, 0, "자녀 없음"),
+        (1, 150_000, "자녀 1명"),
+        (2, 300_000, "자녀 2명"),
+        (3, 600_000, "자녀 3명 (300+300)"),
+        (4, 900_000, "자녀 4명 (300+300+300)"),
+    ],
+)
+def test_child_tax_credit_brackets(table, child, expected, desc):
+    assert _child_tax_credit(child, 0, table) == expected, desc
+
+
+def test_child_tax_credit_newborn_first(table):
+    # 출산 1명 (첫째)
+    assert _child_tax_credit(0, 1, table) == 300_000
+
+
+def test_child_tax_credit_newborn_second(table):
+    # 출산 2명 (첫째 30 + 둘째 50)
+    assert _child_tax_credit(0, 2, table) == 800_000
+
+
+def test_child_tax_credit_newborn_third(table):
+    # 출산 3명 (첫 30 + 둘 50 + 셋 70)
+    assert _child_tax_credit(0, 3, table) == 1_500_000
+
+
+def test_child_tax_credit_combined(table):
+    # 자녀 2명 + 신생아 1명 = 30 + 30 = 60만
+    assert _child_tax_credit(2, 1, table) == 300_000 + 300_000
+
+
+# ---------- _medical_credit ----------
+
+
+def test_medical_under_threshold_returns_zero(table):
+    items = ItemizedDeductions(medical_general=500_000)
+    # 총급여 5000만 → 임계 150만, 일반 50만 < 150만
+    assert _medical_credit(items, 50_000_000, table) == 0
+
+
+def test_medical_over_threshold(table):
+    # 총급여 5000만 → 임계 150만
+    # 의료비 본인 200만 → 임계 차감 후 50만 × 15% = 75,000
+    items = ItemizedDeductions(medical_self_etc=2_000_000)
+    assert _medical_credit(items, 50_000_000, table) == 75_000
+
+
+def test_medical_general_capped_at_700M(table):
+    # 일반 의료비 1000만 → 700만으로 cap
+    # 총급여 5000만 임계 150만 → (700-150) × 15% = 82.5만
+    items = ItemizedDeductions(medical_general=10_000_000)
+    expected = int((7_000_000 - 1_500_000) * 0.15)
+    assert _medical_credit(items, 50_000_000, table) == expected
+
+
+# ---------- _donation_credit ----------
+
+
+def test_donation_political_low_tier_full_credit(table):
+    # 10만 이하 정치자금 → 100% 세액공제
+    items = ItemizedDeductions(donation_political=100_000)
+    assert _donation_credit(items, 30_000_000, table) == 100_000
+
+
+def test_donation_political_mid_tier(table):
+    # 100만 정치자금 → 10만 × 100% + 90만 × 15% = 10만 + 13.5만 = 23.5만
+    items = ItemizedDeductions(donation_political=1_000_000)
+    expected = 100_000 + int(900_000 * 0.15)
+    assert _donation_credit(items, 30_000_000, table) == expected
+
+
+def test_donation_political_high_tier(table):
+    # 5000만 정치자금 → 10만 × 100% + (3000-10) × 15% + (5000-3000) × 25%
+    items = ItemizedDeductions(donation_political=50_000_000)
+    expected = (
+        100_000
+        + int((30_000_000 - 100_000) * 0.15)
+        + int((50_000_000 - 30_000_000) * 0.25)
+    )
+    assert _donation_credit(items, 100_000_000, table) == expected
+
+
+def test_donation_general_under_high_threshold(table):
+    # 일반기부금 500만 → 한도 OK (소득 충분), 500만 × 15% = 75만
+    items = ItemizedDeductions(donation_general=5_000_000)
+    assert _donation_credit(items, 100_000_000, table) == 750_000
+
+
+def test_donation_general_split_at_high_threshold(table):
+    # 일반기부금 1500만 → 1000만 × 15% + 500만 × 30% = 150 + 150 = 300만
+    items = ItemizedDeductions(donation_general=15_000_000)
+    assert _donation_credit(items, 100_000_000, table) == 1_500_000 + 1_500_000
+
+
+def test_donation_general_capped_at_30pct_of_income(table):
+    # 근로소득금액 1000만 → 한도 300만. 일반기부금 1000만이지만 300만으로 cap.
+    # 300만 × 15% = 45만
+    items = ItemizedDeductions(donation_general=10_000_000)
+    assert _donation_credit(items, 10_000_000, table) == 450_000
+
+
+# ---------- compute_itemized ----------
+
+
+def test_compute_itemized_combines_all(table):
+    items = ItemizedDeductions(
+        child_count_under_20=2,  # 30만
+        donation_political=100_000,  # 10만
+        medical_self_etc=2_000_000,  # (200-150) × 15% = 7.5만 (총급여 5000만 가정)
+    )
+    total, breakdown = compute_itemized(
+        items, gross_salary=50_000_000, earned_income_amount=37_750_000, table=table
+    )
+    assert breakdown.get("child_tax_credit") == 300_000
+    assert breakdown.get("donation_credit") == 100_000
+    assert breakdown.get("medical_credit") == 75_000
+    assert total == 300_000 + 100_000 + 75_000
+
+
+def test_compute_itemized_skips_zero_items(table):
+    items = ItemizedDeductions(child_count_under_20=1)
+    total, breakdown = compute_itemized(
+        items, gross_salary=50_000_000, earned_income_amount=37_750_000, table=table
+    )
+    assert "medical_credit" not in breakdown
+    assert "donation_credit" not in breakdown
+    assert total == 150_000
+
+
+# ---------- 통합: calculate(...) 가 itemized 우선 ----------
+
+
+def test_calculate_itemized_overrides_extra_tax_credits():
+    """itemized 제공 시 extra_tax_credits 무시되어야 함."""
+    inputs = CalcInputs(
+        gross_salary=30_000_000,
+        prepaid_tax=1_000_000,
+        extra_tax_credits=999_999,  # 무시되어야 함
+        itemized=ItemizedDeductions(child_count_under_20=2),  # 30만
+    )
+    r = calculate(inputs)
+    # extra_tax_credits 자리에 itemized 결과가 들어와야 함
+    assert r.extra_tax_credits == 300_000
+    assert r.itemized_breakdown == {"child_tax_credit": 300_000}
+
+
+def test_calculate_no_itemized_uses_extra_tax_credits():
+    inputs = CalcInputs(
+        gross_salary=30_000_000,
+        prepaid_tax=1_000_000,
+        extra_tax_credits=500_000,
+    )
+    r = calculate(inputs)
+    assert r.extra_tax_credits == 500_000
+    assert r.itemized_breakdown == {}
+
+
+def test_calculate_itemized_step_present():
+    """itemized 사용 시 steps 에 itemized_tax_credits 단계 포함."""
+    inputs = CalcInputs(
+        gross_salary=30_000_000,
+        prepaid_tax=1_000_000,
+        itemized=ItemizedDeductions(child_count_under_20=1),
+    )
+    r = calculate(inputs)
+    names = [s.name for s in r.steps]
+    assert "itemized_tax_credits" in names
+    assert "extra_tax_credits" not in names
 
 
 # ============================================================

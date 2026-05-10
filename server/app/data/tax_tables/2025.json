@@ -70,5 +70,46 @@
   "local_income_tax": {
     "_desc": "지방소득세 = 결정세액(국세) × 10%.",
     "rate": 0.10
+  },
+  "itemized": {
+    "_desc": "Tier 3-3: 항목별 정밀 세액공제 산식 상수.",
+    "child_tax_credit": {
+      "_legal": "소득세법 §59의2",
+      "_desc": "만 8~20세 자녀 + 출산·입양 추가공제. 1명 15만, 2명 30만, 그 위로 1명당 30만 추가.",
+      "first_or_second_per_child": 150000,
+      "additional_per_child": 300000,
+      "newborn": {
+        "first": 300000,
+        "second": 500000,
+        "third_or_more": 700000
+      }
+    },
+    "medical_credit": {
+      "_legal": "소득세법 §59의4 ②",
+      "_desc": "의료비 세액공제. 임계값(총급여 3%) 초과분만 15%. 일반 부양가족은 700만 한도.",
+      "threshold_pct_of_gross": 0.03,
+      "rate": 0.15,
+      "general_dependents_cap": 7000000,
+      "_v1_todo": "난임 30%, 미숙아 20% 차등 — v1 정밀화"
+    },
+    "donation_credit": {
+      "_legal": "조세특례제한법 §76 (정치) / 소득세법 §59의4 ④ (일반)",
+      "political": {
+        "_desc": "정치자금 기부금 — 10만 이하 100%, 그 위 15%, 3000만 초과 25%.",
+        "low_threshold": 100000,
+        "low_rate": 1.0,
+        "mid_threshold": 30000000,
+        "mid_rate": 0.15,
+        "high_rate": 0.25
+      },
+      "general": {
+        "_desc": "법정/지정 기부금. 1000만 이하 15%, 초과분 30%. 한도는 근로소득금액의 30%.",
+        "rate_low": 0.15,
+        "rate_high": 0.30,
+        "high_threshold": 10000000,
+        "cap_pct_of_earned_income": 0.30,
+        "_v1_todo": "법정·지정·종교 한도 차등 (현재 모두 30% 단일 한도)"
+      }
+    }
   }
 }
