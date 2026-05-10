@@ -80,9 +80,9 @@ Tests:  206 passed · 보안 패스 통과 (path traversal 차단 + admin 토큰
 
 ---
 
-## 3. 보안 결정
+## 3. 보안 / 운영 안전성 결정
 
-PoC 직접 검증 → 차단 조치 → 회귀 테스트.
+PoC 직접 검증 또는 유저 e2e 시뮬 → 차단 조치 → 회귀 테스트.
 
 | 위협 | 발견 | 차단 조치 |
 |---|---|---|
@@ -94,6 +94,15 @@ PoC 직접 검증 → 차단 조치 → 회귀 테스트.
 | `/admin/*` 와 `/rag/*` 무인증 | (기획상) | `X-Admin-Token` + `hmac.compare_digest` 타이밍 공격 방어. ADMIN_TOKEN 미설정 시 503 |
 | LLM/embedding 비용 폭주 | (기획상) | `slowapi` rate limit (4 임계값) |
 | `print()` 디버그 / 로그 누락 | 운영 가시성 0 | `logging` dictConfig + Request ID 미들웨어 |
+| **🔴 admin/rules/compile + rag/search/index body 파싱 깨짐** | 유저 e2e 시뮬 중 발견 — 422 "Field required: req (in query)". 단위 테스트는 라우터 미통과로 못 잡음. 운영 배포 후 발견됐으면 admin LLM 컴파일 + RAG 검색 사용 불가 사고. | (a) 라우터에서 `from __future__ import annotations` 제거 (어노테이션 ForwardRef 화 회피) (b) 본문 파라미터에 명시적 `Body(...)` default (c) `tests/test_body_parsing.py` 회귀 테스트 4건 추가 — TestClient 통과 + `loc[0]=='body'` 어서션 |
+
+### 검증 인프라 — 단계별 안전망
+1. **단위 테스트** (서비스 함수 직접 호출) — 산식·논리 정확성
+2. **TestClient 통합** (`test_security.py`, `test_body_parsing.py`) — 라우터·미들웨어·body 파싱
+3. **유저 e2e 시뮬** — 운영 배포 직전 시나리오 17개 (위저드 + admin + 인증 가드 + rate limit)
+4. CI 자동 실행 (`.github/workflows/test.yml`)
+
+→ 단위만 보면 놓치는 라우터 레벨 버그는 **TestClient + e2e 시뮬** 가 잡음. body 파싱 사고가 그 대표 사례.
 
 ---
 
