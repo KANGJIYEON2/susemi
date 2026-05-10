@@ -119,6 +119,16 @@ export default function IntroStep({ onStart, onResume }: Props) {
         <p className="mt-3 text-center text-[11px] text-slate-400">
           정확한 세액 계산이 아니라 공제 구조 설명용 도구예요.
         </p>
+        {recent ? (
+          <p className="mt-2 text-center">
+            <a
+              href="/history"
+              className="text-[11px] font-medium text-slate-500 underline-offset-2 hover:text-slate-900 hover:underline"
+            >
+              전체 기록 보기 →
+            </a>
+          </p>
+        ) : null}
       </div>
     </div>
   );

@@ -1,7 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { CheckCircle2, RotateCcw } from "lucide-react";
+import {
+  CheckCircle2,
+  History,
+  Printer,
+  RotateCcw,
+} from "lucide-react";
 import Button from "@/app/components/ui/Button";
 import type { AnalyzeRequest } from "@/app/lib/types";
 import RecommendSection from "./RecommendSection";
@@ -11,6 +16,10 @@ import VerifySection from "./VerifySection";
 interface Props {
   restart: () => void;
   inputs: AnalyzeRequest;
+}
+
+function handlePrint() {
+  if (typeof window !== "undefined") window.print();
 }
 
 export default function ResultStep({ restart, inputs }: Props) {
@@ -74,9 +83,28 @@ export default function ResultStep({ restart, inputs }: Props) {
         데스크톱은 우측 패널의 인덱스를 클릭하면 해당 섹션으로 이동합니다.
       </div>
 
-      <div>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="cta"
+          size="md"
+          onClick={handlePrint}
+          leftIcon={<Printer className="h-4 w-4" />}
+        >
+          리포트 PDF로 저장
+        </Button>
         <Button
           variant="outline"
+          size="md"
+          onClick={() => {
+            if (typeof window !== "undefined")
+              window.location.href = "/history";
+          }}
+          leftIcon={<History className="h-4 w-4" />}
+        >
+          전체 기록
+        </Button>
+        <Button
+          variant="ghost"
           size="md"
           onClick={restart}
           leftIcon={<RotateCcw className="h-4 w-4" />}

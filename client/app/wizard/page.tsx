@@ -5,6 +5,7 @@ import {
   Dispatch,
   FormEvent,
   SetStateAction,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -13,7 +14,13 @@ import AppHeader from "@/app/components/AppHeader";
 import ReportLayout from "@/app/components/report/ReportLayout";
 
 import { analyzeTax, parsePdf } from "@/app/lib/api";
-import { saveAnalysis, type StoredAnalysis } from "@/app/lib/storage";
+import {
+  loadAnalysis,
+  saveAnalysis,
+  type StoredAnalysis,
+} from "@/app/lib/storage";
+
+const RESUME_SLOT_KEY = "susemi.resume";
 import type {
   AnalyzeResponse,
   Conditions,
@@ -173,6 +180,22 @@ export default function WizardPage() {
     goStep(4);
   };
 
+  // /history 에서 "보기" 클릭 시 sessionStorage 로 id 전달 → 마운트 시 resume
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let cancelled = false;
+    const id = window.sessionStorage.getItem(RESUME_SLOT_KEY);
+    if (!id) return;
+    window.sessionStorage.removeItem(RESUME_SLOT_KEY);
+    loadAnalysis(id).then((loaded) => {
+      if (!cancelled && loaded) handleResume(loaded);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const restart = () => {
     setIncome(defaultIncome);
     setDependents(defaultDependents);
@@ -255,13 +278,14 @@ export default function WizardPage() {
           </div>
         </section>
 
-        {/* 우측(데스크톱) / 결과 단계(모바일): 리포트 패널 */}
+        {/* 우측(데스크톱) / 결과 단계(모바일): 리포트 패널.
+            report-print 클래스: @media print 시 이 영역만 출력 (globals.css 참조) */}
         <section
           className={`w-full bg-slate-50 md:w-[55%] ${
             showReportMobile ? "block" : "hidden md:block"
           }`}
         >
-          <div className="sticky top-14 mx-auto w-full max-w-[640px] px-5 py-6 md:py-8">
+          <div className="report-print sticky top-14 mx-auto w-full max-w-[640px] px-5 py-6 md:py-8">
             <ReportLayout
               data={result}
               loading={loadingAnalyze}

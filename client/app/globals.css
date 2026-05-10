@@ -16,8 +16,11 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* (보존) ChangwonDangam 라운드 폰트.
-   현재는 어디에도 적용하지 않음. 추후 마스코트 옆 hero 카피 등에 한정해 쓸 수 있도록 로드만 유지. */
+/* Pretendard — 한글 가독성 (jsdelivr 호스팅, dynamic-subset, woff2)
+   동적 서브셋 — 사용 글자만 다운로드되어 가벼움. */
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css");
+
+/* (보존) ChangwonDangam 라운드 폰트 — 현재 미적용, 후일 hero 카피용. */
 @font-face {
   font-family: "ChangwonDangamRounded";
   src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/2511-1@1.0/ChangwonDangamRound-Regular.woff2")
@@ -36,8 +39,9 @@ body {
 
 body {
   font-family:
-    var(--font-geist-sans),
+    "Pretendard Variable",
     "Pretendard",
+    var(--font-geist-sans),
     -apple-system,
     BlinkMacSystemFont,
     "Apple SD Gothic Neo",
@@ -61,4 +65,50 @@ body {
 ::selection {
   background: #fef9c3;
   color: #0f172a;
+}
+
+/* ----------------------------------------------------------
+   Print 스타일 (Tier 2-2) — "리포트 저장(PDF)" 시 ReportLayout 만 깔끔히
+----------------------------------------------------------- */
+
+@media print {
+  /* 페이지 여백 */
+  @page {
+    margin: 14mm 12mm;
+    size: A4 portrait;
+  }
+
+  /* 인쇄용 배경 색상 살리기 (Chrome/Safari 디폴트는 배경 제거) */
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    background: #ffffff;
+  }
+
+  /* 본문 외 모두 숨김. .report-print 안에 있는 것만 보임. */
+  body * {
+    visibility: hidden;
+  }
+  .report-print,
+  .report-print * {
+    visibility: visible;
+  }
+  .report-print {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    padding: 0;
+  }
+
+  /* 명시적으로 숨길 요소 (버튼, 링크 등) */
+  .no-print {
+    display: none !important;
+  }
+
+  /* sticky / shadow 제거 */
+  .report-print *,
+  .report-print {
+    box-shadow: none !important;
+    position: static !important;
+  }
 }
