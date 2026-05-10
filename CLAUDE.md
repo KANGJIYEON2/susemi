@@ -276,15 +276,40 @@ npm run lint
 
 ## 작업할 때 의식해야 할 것
 
-- **세무 계산은 틀리면 안 됨.** 정확도가 UX 보다 우선. 산식 변경시 골든셋 expected 값 재계산.
+### 정확성·출처
+- **세무 계산은 틀리면 안 됨.** 정확도가 UX 보다 우선. 산식 변경시 `tests/golden/*.json` expected 값 재확인.
 - **출처 없는 법령 인용 금지.** `RuleEvaluation.legal_anchor` 와 `CalcStep.legal_anchor` 가 truth source. LLM 은 `[rule_id]` 마커로 참조만 가능.
 - **민감 데이터 서버 영속화 안 함** (default off). 추가시 명시적 동의 + 암호화 흐름 설계.
+
+### 확장 시 동기화 포인트
 - **새 룰 추가**: `data/rules/{year}.json` 에 정의 추가만. evaluator 화이트리스트(`EVAL_CONTEXT_FIELDS`) 외 필드 참조 시 confidence 디스카운트.
-- **새 evaluator 종류 추가**: `rule_schema.py` 에 새 `Literal kind` BaseModel + `rules_engine.py` 의 `evaluate_rule` 분기 + `rule_compiler.py` 프롬프트의 `kind` 옵션 + `dependencies.py` 의 `_rule_input_fields` 분기 (4곳 동기화 필요).
+- **새 evaluator 종류 추가**: `rule_schema.py` 에 새 `Literal kind` BaseModel + `rules_engine.py` 의 `evaluate_rule` 분기 + `rule_compiler.py` 프롬프트의 `kind` 옵션 + `dependencies.py` 의 `_rule_input_fields` 분기 (**4곳 동기화 필요**).
 - **새 tax_calculator 단계 추가**: `tax_calculator.calculate(...)` 에 단계 추가 + `tax_calculator_schema.CalcResult` 필드 + **`dependencies.TAX_STEP_DEPS` 와 `TAX_STEP_META` 동기 갱신** (ripple 정확성 의존).
-- **`load_rules` 캐시**: `lru_cache` 사용 중. 룰 파일을 직접 수정했다면 `load_rules.cache_clear()` 필요 (rule_drafts_store.approve_draft 가 자동으로 함).
-- **OpenAI 클라이언트는 lazy init** (`_get_client()`). 직접 import 시점에 API key 없어도 됨.
+- **새 itemized 산식 추가** (Tier 3-3): `ItemizedDeductions` 필드 + `tax_calculator._{name}_credit` helper + `tax_tables/{year}.json itemized` 섹션 + `compute_itemized` 호출.
+
+### 라우터 작성 — 사고 방지
+- **새 POST 엔드포인트에 Pydantic body + slowapi `@limiter.limit` 같이 쓸 때**:
+  1. 라우터 파일에 `from __future__ import annotations` **쓰지 말 것** (어노테이션이 ForwardRef 가 되면 FastAPI body 추론 실패)
+  2. 본문 파라미터에 명시적 `Body(...)` default 추가:
+     ```python
+     async def endpoint(request: Request, payload: MyModel = Body(...)):
+     ```
+  3. **회귀 테스트는 TestClient 로 라우터 통과해서 검증** — `test_body_parsing.py` 패턴 참조. 단위 테스트만 짜면 422 사고 못 잡음.
 - **path 컴포넌트로 받는 user input 은 화이트리스트 통과 필수** — `rule_id`, `law_id`, `effective_date` 등.
+
+### 인프라
+- **`load_rules` 캐시**: `lru_cache` 사용 중. 룰 파일 직접 수정 시 `load_rules.cache_clear()` 필요 (rule_drafts_store.approve_draft 가 자동).
+- **OpenAI 클라이언트는 lazy init** (`_get_client()`). 직접 import 시점에 API key 없어도 됨.
+- **로깅**: `print()` 쓰지 말 것. `logger = logging.getLogger(__name__)` + `logger.info/exception`.
+- **rate limit 추가**: `app/rate_limit.py` 의 임계값 상수 사용. 새 LLM/embedding 엔드포인트에 `@limiter.limit(LIMIT_*)` 데코레이터.
+
+### 검증 안전망 4단
+1. 단위 테스트 (서비스 함수)
+2. **TestClient 통합** (라우터·미들웨어·body 파싱)
+3. 유저 e2e 시뮬 (배포 직전)
+4. CI 자동 (`.github/workflows/test.yml`)
+
+→ 단위만 보면 라우터 레벨 버그 못 잡음. 새 라우터 추가 시 **TestClient 회귀 테스트 동시 추가**.
 
 ---
 
@@ -294,5 +319,5 @@ npm run lint
 - `legal_api.list_changes_since` 파라미터/응답 키 미검증 (⚠️ assumed)
 - PDF 파서: 텍스트 PDF 만 지원, 이미지 OCR 없음
 - RAG: 메모리 풀스캔 (수백 법령까지 OK), vector DB 미적용
-- 항목별 정밀 산식 (자녀세액공제 / 의료비 한도별 / 기부금 종류별) 미구현 — 외부에서 합산값으로 단순화
-- Admin 인증 없음 — 운영 배포 전 필수
+- 항목별 정밀 산식 (Tier 3-3): 자녀세액공제 / 의료비 / 기부금 정치·일반 정도. **난임 30% / 미숙아 20% 차등은 v1, 보험료/교육비/연금저축은 v1**
+- 골든셋 calibration: `tests/golden/*.json` 의 모든 source 가 `hand_calculated`. 사용자가 모의계산기로 검증해 `official_calculator_YYYY-MM-DD` 로 갱신 필요

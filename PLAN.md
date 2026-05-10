@@ -3,8 +3,8 @@
 > 본 문서는 작업 우선순위와 결정사항 워킹 문서. 상세 코드 패턴은 [CLAUDE.md](./CLAUDE.md), 사용자용 README 는 [README.md](./README.md) 참조.
 
 ```
-Status: Phase 1~4 ✅ · v2-1~v2-4 ✅ · Tier 1(운영 배포) ✅ · Phase 5 보류
-Tests:  206 passed · 보안 패스 통과 (path traversal 차단 + admin 토큰 + rate limit + 로깅)
+Status: Phase 1~4 ✅ · v2 ✅ · Tier 1(배포) ✅ · Tier 2(UX) ✅ · Tier 3(정확도) ✅ · 운영 배포 대기
+Tests:  237 passed · e2e 시뮬 17/17 · 보안 + 가용성 패스 통과
 ```
 
 ---
@@ -52,6 +52,30 @@ Tests:  206 passed · 보안 패스 통과 (path traversal 차단 + admin 토큰
 | Tier 1-3 CI (GitHub Actions) | ✅ | `.github/workflows/test.yml` — pytest + lint + build + docker buildx |
 | Tier 1-4 Rate limit (slowapi) | ✅ | `/analyze`·`/pdf-parse` 5/min, `/admin/rules/compile` 10/min, `/admin/rag/search` 30/min, `/admin/rag/index` 10/hour |
 | Tier 1-5 구조화된 로깅 | ✅ | `logging_config.py` + Request ID 미들웨어 + LOG_LEVEL env |
+| Tier 1-6 잔여 정리 — `deploy.yml` Docker 방식 | ✅ | `workflow_run` 게이트 + `docker compose up -d --build`. 옛 gunicorn 패턴 폐기 |
+
+### Tier 2 (사용자 가치)
+
+| 항목 | 상태 | 핵심 산출물 |
+|---|:---:|---|
+| Tier 2-1 다년도 트렌드 뷰 | ✅ | `/history` 페이지 — stats 4종 + 막대 차트 + 시계열 + sessionStorage resume |
+| Tier 2-2 리포트 PDF 저장 | ✅ | `@media print` + `window.print()`. 라이브러리 무의존 |
+| Tier 2-3 Pretendard 폰트 | ✅ | jsdelivr dynamic-subset, body 우선 적용 |
+| Tier 2-4 분석 결과 비교 | ✅ | `/history` 체크박스 2개 → side-by-side 표 + 차이 amber 강조 |
+
+### Tier 3 (세무 정확도 심화)
+
+| 항목 | 상태 | 핵심 산출물 |
+|---|:---:|---|
+| Tier 3-1 골든셋 calibration 프레임 | ✅ | `tests/golden/*.json` 자동 로드 + parametrize + source 메타. (사용자가 모의계산기 검증만 하면 됨) |
+| Tier 3-3 항목별 정밀 산식 | ✅ | `ItemizedDeductions`(자녀/의료비/기부금) + `compute_itemized` + `tax_tables/2025.json` itemized 섹션 + 27 테스트 |
+| Tier 3-2 원천징수영수증 PDF 파서 | 보류 | 현 단계 가치 낮다 판단 |
+
+### 운영 배포 직전 발견 (e2e 시뮬)
+
+| 항목 | 상태 | 메모 |
+|---|:---:|---|
+| body 파싱 사고 fix | ✅ | `from __future__` + slowapi + Body 충돌 — admin/rag 3개 엔드포인트 422 → 정상. 회귀 테스트 4 (§3 참조) |
 
 ---
 
@@ -192,9 +216,11 @@ docker compose ps                  # 컨테이너 상태
 
 | 항목 | 상태 | 메모 |
 |---|---|---|
-| `.github/workflows/deploy.yml` 갱신 | ⚠️ TODO | 현재 옛 gunicorn 방식(`pkill gunicorn` + `pip install`)으로 작성됨. Docker 전환 후 obsolete. **수정안**: ssh로 `cd ~/susemi && git pull && docker compose up -d --build` 호출하게 |
-| 골든셋 모의계산기 동치성 검증 | ⚠️ TODO | 사용자 액션 필요 (Tier 3-1 참조) |
-| `legal_api.list_changes_since` 실 응답 검증 | ⚠️ assumed | 현재 미검증, 호출 시 502 가능 |
+| `.github/workflows/deploy.yml` Docker 방식 갱신 | ✅ done | `workflow_run` CI 게이트 + `docker compose up -d --build` (Tier 1-6) |
+| **운영 배포** (사용자 직접) | ⏳ pending | EC2 셋업 + `.env` 작성 + `docker compose up -d --build`. §4 가이드 참조 |
+| 골든셋 모의계산기 동치성 검증 | ⚠️ user-action | 사용자가 홈택스 모의계산기로 검증 후 `tests/golden/*.json` source/expected 갱신 (Tier 3-1 README 참조) |
+| `legal_api.list_changes_since` 실 응답 검증 | ⚠️ assumed | 현재 미검증, 호출 시 502 가능 (low priority) |
+| Tier 3-2 원천징수영수증 PDF 파서 | 보류 | 현 단계 가치 낮다고 판단. 사용자가 원할 때 추가. |
 | Admin 페이지 noindex meta | ✅ done | `app/admin/layout.tsx` 의 metadata `robots: noindex` |
 
 ---
