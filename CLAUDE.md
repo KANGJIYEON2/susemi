@@ -4,7 +4,7 @@
 > 사용자용 README: [README.md](./README.md) · 단계별 작업 로그/결정: [PLAN.md](./PLAN.md)
 
 ```
-Status: Phase 1~4 완료 · 145 tests passing · 보안 패스 통과
+Status: Phase 1~4 완료 · 237 tests passing · 보안 패스 통과
 2025년 귀속 기준
 ```
 
@@ -111,7 +111,7 @@ susemi/
         │   ├── tax_tables/2025.json    # 세율·공제표
         │   ├── legal_cache/            # 법령 API 캐시 (gitignored)
         │   └── rag_index/              # RAG 임베딩 (gitignored)
-        └── tests/                      # 145 케이스 (1.7초)
+        └── tests/                      # 237 케이스 (3.4초)
             ├── test_legal_api.py       (11)
             ├── test_tax_calculator.py  (27)
             ├── test_rules_engine.py    (19)
@@ -263,7 +263,7 @@ susemi/
 cd server
 source venv/bin/activate
 uvicorn main:app --reload     # http://localhost:8000
-pytest tests/ -q              # 145 passed
+pytest tests/ -q              # 237 passed
 
 # Frontend
 cd client
