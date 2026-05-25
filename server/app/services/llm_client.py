@@ -9,6 +9,7 @@ from app.schemas.pdf_schema import ParsedPdfData
 from app.schemas.manual_input_schema import ManualInputRequest
 from app.schemas.analysis_schema import Summary, Section
 from app.schemas.rag_schema import SearchHit
+from app.schemas.tax_calculator_schema import CalcResult
 from app.services.rules_engine import RuleContext
 
 # OpenAI 클라이언트는 lazy init — 테스트 환경에서 모듈 로드 시점 OPENAI_API_KEY 미설정 회피.
@@ -116,6 +117,37 @@ def _format_rag_for_prompt(rag_hits: List[SearchHit]) -> str:
     return "\n".join(lines)
 
 
+def _format_calc_for_prompt(calc: CalcResult | None) -> str:
+    """세금 산식 결과를 LLM 이 참조할 수 있는 블록으로 직렬화."""
+    if calc is None:
+        return "(세금 산식 실행 불가 — 소득 데이터 부족)"
+    lines = [
+        f"근로소득공제: {calc.earned_income_deduction:,}원",
+        f"근로소득금액: {calc.earned_income_amount:,}원",
+        f"인적공제: {calc.personal_deduction:,}원",
+        f"과세표준: {calc.taxable_income:,}원",
+        f"산출세액: {calc.calculated_tax:,}원",
+        f"근로소득세액공제: {calc.earned_income_tax_credit:,}원",
+        f"표준세액공제: {calc.standard_tax_credit:,}원",
+        f"기타 세액공제: {calc.extra_tax_credits:,}원",
+        f"결정세액(국세): {calc.determined_tax:,}원",
+        f"지방소득세: {calc.local_income_tax:,}원",
+        f"총 부담세액: {calc.total_tax:,}원",
+        f"기납부세액: {calc.prepaid_tax:,}원",
+        f"환급/추징: {calc.refund_or_owed:,}원 ({'환급' if calc.refund_or_owed > 0 else '추징' if calc.refund_or_owed < 0 else '정산 완료'})",
+    ]
+    if calc.itemized_breakdown:
+        lines.append("── 항목별 세액공제 ──")
+        label_map = {
+            "child_tax_credit": "자녀세액공제",
+            "medical_credit": "의료비 세액공제",
+            "donation_credit": "기부금 세액공제",
+        }
+        for k, v in calc.itemized_breakdown.items():
+            lines.append(f"  {label_map.get(k, k)}: {v:,}원")
+    return "\n".join(lines)
+
+
 def build_prompt(
     income: Income,
     dependents: Dependents,
@@ -124,10 +156,12 @@ def build_prompt(
     manual_input: ManualInputRequest,
     rule_context: RuleContext,
     rag_hits: List[SearchHit] | None = None,
+    calc_result: CalcResult | None = None,
 ) -> str:
 
     rules_block = _format_rules_for_prompt(rule_context)
     rag_block = _format_rag_for_prompt(rag_hits or [])
+    calc_block = _format_calc_for_prompt(calc_result)
 
     return f"""
 당신은 2025년 한국 근로소득 연말정산 WHY 분석 전문가입니다.
@@ -155,10 +189,13 @@ def build_prompt(
   - 관련 룰이 있으면 문장 끝에 [rule_id] 마커 부착
   - 예: "따라서 의료비 세액공제 요건을 충족하지 못했습니다 [medical_3_threshold]."
 
-**④ 공제 혜택 시뮬레이션** — 충족 시 예상 절세 효과, 미충족 시 얼마나 더 필요한지.
-  - 예: 272,600원만 추가 지출하면 초과분부터 15% 세액공제를 받을 수 있습니다.
+**④ 세금 산식 기반 절세 시뮬레이션** — 【자체 세금 산식 결과】의 실제 세액을 인용.
+  - 반드시 결정세액, 환급/추징 금액을 명시
+  - 충족 시: "현재 결정세액 X원에서 이 공제로 Y원이 줄어 Z원을 추가 환급받을 수 있습니다"
+  - 미충족 시: "현재 결정세액 X원이며, 의료비를 Y원 더 지출하면 초과분의 15%인 Z원을 절세할 수 있습니다"
+  - 환급/추징 상태도 언급: "현재 기납부세액 대비 A원 환급/추징 예상입니다"
 
-**⑤ 실행 가능한 전략** — 내년에 이 공제를 받기 위한 구체적 행동.
+**⑤ 실행 가능한 전략** — 내년에 이 공제를 받기 위한 구체적 행동 + 예상 절세 금액.
 
 ━━━ Provenance (출처) ━━━
 
@@ -226,6 +263,9 @@ PDF 월세: {fmt_money(parsed_pdf.rent_in_pdf)}
 가족 의료비: {manual_input.family_medical_expenses}
 안경/콘택트렌즈: {fmt_money(manual_input.glasses_contacts_expense)}
 산후조리원: {fmt_money(manual_input.childbirth_care_expense)}
+
+【자체 세금 산식 결과 — 실제 계산된 세액. 이 숫자를 반드시 detail에서 인용】
+{calc_block}
 
 【규칙엔진 평가 결과 — 반드시 이것만 사용】
 {rules_block}
@@ -296,6 +336,7 @@ async def generate_analysis(
     manual_input: ManualInputRequest,
     rule_context: RuleContext,
     rag_hits: List[SearchHit] | None = None,
+    calc_result: CalcResult | None = None,
 ) -> Tuple[Summary, List[Section], List[str]]:
 
     prompt = build_prompt(
@@ -306,6 +347,7 @@ async def generate_analysis(
         manual_input,
         rule_context,
         rag_hits=rag_hits,
+        calc_result=calc_result,
     )
 
     response = await _get_client().chat.completions.create(

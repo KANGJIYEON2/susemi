@@ -4,9 +4,11 @@ from app.rate_limit import LIMIT_LLM_USER, limiter
 from app.schemas.analysis_schema import AnalyzeRequest, AnalyzeResponse, Section
 from app.schemas.rag_schema import SearchHit
 from app.schemas.rule_schema import RuleEvaluation
+from app.schemas.tax_calculator_schema import CalcInputs, CalcResult, DependentsInput
 from app.services import rag
 from app.services.llm_client import generate_analysis
 from app.services.rules_engine import RuleContext, build_rule_context
+from app.services.tax_calculator import calculate
 
 router = APIRouter()
 
@@ -72,6 +74,30 @@ async def _fetch_rag_context(
         return []
 
 
+def _run_tax_calc(data: AnalyzeRequest) -> CalcResult | None:
+    """사용자 입력 → CalcInputs 변환 → tax_calculator 실행. 실패 시 None."""
+    try:
+        gross = (data.income.total_salary or 0) - (data.income.non_taxable or 0)
+        if gross <= 0:
+            return None
+        inputs = CalcInputs(
+            gross_salary=gross,
+            non_taxable=data.income.non_taxable or 0,
+            dependents=DependentsInput(
+                spouse=data.dependents.has_spouse or False,
+                dependents_count=data.dependents.dependents_count or 0,
+                senior_count=data.dependents.senior_count or 0,
+                disabled_count=data.dependents.disabled_count or 0,
+                female_householder=data.dependents.female_householder or False,
+                single_parent=data.dependents.single_parent or False,
+            ),
+            prepaid_tax=data.parsed_pdf.prepaid_tax or 0,
+        )
+        return calculate(inputs)
+    except Exception:
+        return None
+
+
 @router.post("/analyze", response_model=AnalyzeResponse)
 @limiter.limit(LIMIT_LLM_USER)
 async def analyze_tax(request: Request, data: AnalyzeRequest):
@@ -91,6 +117,9 @@ async def analyze_tax(request: Request, data: AnalyzeRequest):
         manual_input=data.manual_input,
     )
 
+    # 세금 산식 실행 — LLM 이 실제 세액을 참조할 수 있게
+    calc_result = _run_tax_calc(data)
+
     rag_hits = await _fetch_rag_context(rule_context)
 
     summary, sections, tax_tips = await generate_analysis(
@@ -101,6 +130,7 @@ async def analyze_tax(request: Request, data: AnalyzeRequest):
         manual_input=data.manual_input,
         rule_context=rule_context,
         rag_hits=rag_hits,
+        calc_result=calc_result,
     )
 
     # Provenance 부착 — LLM 결과는 변경하지 않고 새 Section 객체로 복제
