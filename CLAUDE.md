@@ -188,8 +188,8 @@ susemi/
 - **carry-forward** — `None` 필드는 직전 연도 값 자동 상속
 - 모든 연도가 동일 세율표 (현재 2025 단년만). per-year 세율표는 v2.
 
-### `recommend.py` — Greedy 4 lever
-- 연금저축 400 / IRP 합산 700 / 정치자금 10만 / 월세 세액공제
+### `recommend.py` — Greedy 5 lever
+- 연금저축 600 / IRP 합산 900 / 정치자금 10만 / 고향사랑 10만 / 월세 세액공제
 - 각 lever: `eligibility(inputs, request)` → `(bool, note)` + `apply(inputs, request)` → 새 CalcInputs
 - 자격 미충족 = 미적격 (delta=0, 마지막 정렬)
 - `cost_label` 로 사용자 부담 명시 (delta 만으로 오해 방지)

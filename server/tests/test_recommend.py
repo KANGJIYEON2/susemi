@@ -47,7 +47,10 @@ def test_recommend_returns_all_levers():
     )
     res = recommend(req)
     ids = [r.lever.lever_id for r in res.recommendations]
-    assert set(ids) == {"pension_400", "pension_irp_700", "donation_100k", "rent_credit"}
+    assert set(ids) == {
+        "pension_600", "pension_irp_900", "donation_100k",
+        "hometown_100k", "rent_credit",
+    }
 
 
 def test_recommend_sorted_by_delta_desc():
@@ -116,7 +119,7 @@ def test_ineligible_pushed_to_back():
 
 
 def test_pension_credit_rate_high_income_lower_delta():
-    """총급여 5500만 초과 시 세율 12% — delta 가 더 작음."""
+    """총급여 5500만 초과 시 세율 13.2% — delta 가 더 작음."""
     low_req = RecommendRequest(
         request=_request(gross=40_000_000), baseline_prepaid_tax=1_000_000
     )
@@ -127,13 +130,12 @@ def test_pension_credit_rate_high_income_lower_delta():
     high_res = recommend(high_req)
 
     low_p = next(
-        r for r in low_res.recommendations if r.lever.lever_id == "pension_400"
+        r for r in low_res.recommendations if r.lever.lever_id == "pension_600"
     )
     high_p = next(
-        r for r in high_res.recommendations if r.lever.lever_id == "pension_400"
+        r for r in high_res.recommendations if r.lever.lever_id == "pension_600"
     )
-    # baseline 의 결정세액이 충분히 크다면 delta 는 거의 credit 액수와 같음
-    # 4,000,000 × 0.132 = 528,000 / 4,000,000 × 0.12 = 480,000
+    # 6,000,000 × 0.165 = 990,000 / 6,000,000 × 0.132 = 792,000
     assert low_p.refund_delta > high_p.refund_delta
 
 
@@ -163,10 +165,10 @@ def test_delta_capped_when_determined_tax_small():
     )
     res = recommend(req)
     pension = next(
-        r for r in res.recommendations if r.lever.lever_id == "pension_400"
+        r for r in res.recommendations if r.lever.lever_id == "pension_600"
     )
-    # 명목: 2000만은 5500 이하 → 13.2% × 400만 = 528,000
-    # 실 baseline 결정세액이 작으면 delta 가 528,000 미만일 수 있음
-    nominal_credit = int(round(4_000_000 * 0.132))
+    # 명목: 2000만은 5500 이하 → 16.5% × 600만 = 990,000
+    # 실 baseline 결정세액이 작으면 delta 가 990,000 미만일 수 있음
+    nominal_credit = int(round(6_000_000 * 0.165))
     assert pension.refund_delta <= nominal_credit
     assert pension.refund_delta >= 0
