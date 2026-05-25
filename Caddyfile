@@ -37,3 +37,40 @@
         level INFO
     }
 }
+
+safety-ai.team-ieum.com {
+    encode gzip zstd
+
+    handle /api/* {
+        reverse_proxy 127.0.0.1:8000
+    }
+
+    handle /health {
+        reverse_proxy 127.0.0.1:8000
+    }
+
+    handle /static/* {
+        reverse_proxy 127.0.0.1:8000
+    }
+
+    handle /worker/* {
+        reverse_proxy 127.0.0.1:3001
+    }
+
+    handle {
+        reverse_proxy 127.0.0.1:3000
+    }
+
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
+
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}
