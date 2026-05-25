@@ -10,8 +10,8 @@
 {$SITE_ADDRESS} {
     encode gzip zstd
 
-    # 백엔드 라우팅
-    handle_path /api/* {
+    # 백엔드 라우팅 — handle (not handle_path) 로 prefix 유지
+    handle /api/* {
         reverse_proxy server:8000
     }
 
