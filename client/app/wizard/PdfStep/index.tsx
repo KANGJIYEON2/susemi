@@ -16,6 +16,36 @@ import Card from "@/app/components/ui/Card";
 
 import type { ParsedPdfData } from "@/app/lib/types";
 
+/** PDF 누락 필드 영→한 매핑 */
+const FIELD_LABEL: Record<string, string> = {
+  donation: "기부금",
+  housing_loan_interest: "주택자금 대출이자",
+  severe_medical_for_disabled: "장애인 의료비",
+  pension_saving: "연금저축",
+  retirement_pension: "퇴직연금(IRP)",
+  tax_credit_type: "세액공제 유형",
+  card_spending: "신용카드 사용액",
+  medical_spending: "의료비",
+  monthly_rent: "월세",
+  insurance_premium: "보험료",
+  education_expense: "교육비",
+  total_salary: "총급여",
+  gross_salary: "근로소득금액",
+  prepaid_tax: "기납부세액",
+  child_count: "자녀 수",
+  newborn_count: "출산·입양 자녀 수",
+  political_donation: "정치자금 기부금",
+  general_donation: "일반 기부금",
+  medical_general: "일반 의료비",
+  medical_infertility: "난임 시술비",
+  medical_premature: "미숙아·선천이상",
+  llm_parse_error: "PDF 인식 오류",
+};
+
+function toKorean(field: string): string {
+  return FIELD_LABEL[field] ?? field;
+}
+
 interface Props {
   parsedPdf: ParsedPdfData | null;
   missingFields: string[];
@@ -109,7 +139,7 @@ export default function PdfStep({
                 누락된 항목이 있어요
               </div>
               <p className="mt-1 text-[12px] text-amber-800/80">
-                {missingFields.join(", ")}
+                {missingFields.map(toKorean).join(", ")}
               </p>
               <p className="mt-1 text-[11px] text-amber-700/70">
                 다음 단계에서 직접 입력하면 분석에 반영됩니다.

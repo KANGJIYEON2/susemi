@@ -138,10 +138,10 @@ def test_format_rag_for_prompt_empty():
 def test_format_rag_for_prompt_truncates_long_text():
     from app.services.llm_client import _format_rag_for_prompt
 
-    long_text = "긴 법령 본문 " * 50  # 약 350자
+    long_text = "긴 법령 본문 " * 100  # 약 700자 — 500자 컷 초과
     hit = _make_hit(long_text)
     out = _format_rag_for_prompt([hit])
-    # 280자 + ellipsis
+    # 500자 + ellipsis
     assert "…" in out
     assert "X법 §1" in out
 

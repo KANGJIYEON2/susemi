@@ -23,7 +23,7 @@ SECTION_TO_RULE_IDS: dict[str, list[str]] = {
 
 
 # RAG 컨텍스트 fetch 시 검색에 쓸 top-K
-RAG_TOP_K = 5
+RAG_TOP_K = 8
 
 
 def _attach_provenance(
