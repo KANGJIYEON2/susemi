@@ -42,23 +42,23 @@ safety-ai.team-ieum.com {
     encode gzip zstd
 
     handle /api/* {
-        reverse_proxy 127.0.0.1:8000
+        reverse_proxy host.docker.internal:8000
     }
 
     handle /health {
-        reverse_proxy 127.0.0.1:8000
+        reverse_proxy host.docker.internal:8000
     }
 
     handle /static/* {
-        reverse_proxy 127.0.0.1:8000
+        reverse_proxy host.docker.internal:8000
     }
 
     handle /worker/* {
-        reverse_proxy 127.0.0.1:3001
+        reverse_proxy host.docker.internal:3001
     }
 
     handle {
-        reverse_proxy 127.0.0.1:3000
+        reverse_proxy host.docker.internal:3000
     }
 
     header {
