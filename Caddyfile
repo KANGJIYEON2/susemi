@@ -53,7 +53,7 @@ safety-ai.team-ieum.com {
         reverse_proxy ehs-compliance-chatbot-api-1:8000
     }
 
-    handle /worker/* {
+    handle_path /worker/* {
         reverse_proxy ehs-compliance-chatbot-worker-1:80
     }
 
