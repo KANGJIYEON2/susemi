@@ -60,7 +60,8 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # 중앙 Caddyfile — 레포 최상위(/home/ubuntu/dev/Caddyfile)에서 모든 앱 라우팅 관리
+      - ../Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     networks:

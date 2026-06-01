@@ -298,6 +298,7 @@ npm run lint
 - **path 컴포넌트로 받는 user input 은 화이트리스트 통과 필수** — `rule_id`, `law_id`, `effective_date` 등.
 
 ### 인프라
+- **중앙 Caddy 리버스 프록시**: 이 compose 의 `caddy` 서비스(`susemi-caddy-1`)가 EC2 의 80/443 을 잡는 **유일한 진입점**이며 susemi 뿐 아니라 ehs·f2a·netscope 까지 전부 라우팅한다. Caddyfile 정본은 **레포 최상위 `~/dev/Caddyfile`** (관리 일원화를 위해 susemi 밖으로 분리; compose 는 `../Caddyfile` 마운트). 다른 앱 컨테이너는 external 네트워크 `susemi_internal` 에 붙어 컨테이너 이름으로 프록시됨. 라우팅 변경 시 `docker exec susemi-caddy-1 caddy reload --config /etc/caddy/Caddyfile`.
 - **`load_rules` 캐시**: `lru_cache` 사용 중. 룰 파일 직접 수정 시 `load_rules.cache_clear()` 필요 (rule_drafts_store.approve_draft 가 자동).
 - **OpenAI 클라이언트는 lazy init** (`_get_client()`). 직접 import 시점에 API key 없어도 됨.
 - **로깅**: `print()` 쓰지 말 것. `logger = logging.getLogger(__name__)` + `logger.info/exception`.
