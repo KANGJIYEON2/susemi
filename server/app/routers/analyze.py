@@ -77,7 +77,9 @@ async def _fetch_rag_context(
 def _run_tax_calc(data: AnalyzeRequest) -> CalcResult | None:
     """사용자 입력 → CalcInputs 변환 → tax_calculator 실행. 실패 시 None."""
     try:
-        gross = (data.income.total_salary or 0) - (data.income.non_taxable or 0)
+        # total_salary 는 이미 비과세 제외(총급여) — verify/simulate/recommend 와 동일하게
+        # non_taxable 을 다시 빼지 않는다 (이중차감 → 세액 과소 버그였음).
+        gross = data.income.total_salary or 0
         if gross <= 0:
             return None
         inputs = CalcInputs(
